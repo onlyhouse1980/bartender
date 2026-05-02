@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Image,
   Linking,
+  Modal,
   Platform,
   Pressable,
   SafeAreaView,
@@ -12,12 +13,18 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
 import { DrinkVisual } from './src/components/DrinkVisual';
 import { GlasswareVisual } from './src/components/GlasswareVisual';
-import { drinks, glasswareGuide, type Drink } from './src/data/bartending';
+import {
+  drinks,
+  glasswareGuide,
+  type Drink,
+  type GlasswareIllustration,
+} from './src/data/bartending';
 import {
   normalizeDrinkKey,
   searchWebDrinks,
@@ -52,11 +59,16 @@ type QuizStatus =
   | { kind: 'correct'; message: string }
   | { kind: 'wrong'; message: string }
   | { kind: 'cheat-reveal'; message: string };
+type ImagePreview =
+  | { kind: 'drink'; drink: Drink; title: string }
+  | { kind: 'glass'; illustration: GlasswareIllustration; title: string }
+  | { kind: 'remote'; uri: string; title: string };
 
 export default function App() {
   const scrollViewRef = useRef<ScrollView | null>(null);
   const librarySectionOffsetRef = useRef(0);
   const quizSectionOffsetRef = useRef(0);
+  const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
   const [activeView, setActiveView] = useState<AppView>('library');
   const [selectedCategory, setSelectedCategory] = useState('Alle');
   const [expandedDrinkId, setExpandedDrinkId] = useState<string | null>(drinks[0]?.id ?? null);
@@ -72,6 +84,7 @@ export default function App() {
   const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
   const [ingredientSearchQuery, setIngredientSearchQuery] = useState('');
   const [quizStatus, setQuizStatus] = useState<QuizStatus>({ kind: 'idle' });
+  const [imagePreview, setImagePreview] = useState<ImagePreview | null>(null);
   const cheatTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -110,6 +123,9 @@ export default function App() {
     !quizLocked &&
     !!selectedGlass &&
     (selectedIngredients.length > 0 || currentDrink.ingredients.length === 0);
+  const previewFrameWidth = Math.min(viewportWidth - 24, 640);
+  const previewFrameHeight = Math.min(viewportHeight - 160, 640);
+  const previewVisualSize = Math.min(previewFrameWidth, previewFrameHeight);
   const serveButtonLabel =
     quizStatus.kind === 'correct'
       ? 'Richtig serviert'
@@ -348,6 +364,34 @@ export default function App() {
     });
   }
 
+  function openDrinkPreview(drink: Drink) {
+    setImagePreview({
+      kind: 'drink',
+      drink,
+      title: drink.name,
+    });
+  }
+
+  function openGlassPreview(illustration: GlasswareIllustration, title: string) {
+    setImagePreview({
+      kind: 'glass',
+      illustration,
+      title,
+    });
+  }
+
+  function openRemoteImagePreview(uri: string, title: string) {
+    setImagePreview({
+      kind: 'remote',
+      uri,
+      title,
+    });
+  }
+
+  function closeImagePreview() {
+    setImagePreview(null);
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
@@ -402,9 +446,16 @@ export default function App() {
               >
                 {glasswareGuide.map((item) => (
                   <View key={item.name} style={styles.glassCard}>
-                    <View style={styles.glassVisualWrap}>
+                    <Pressable
+                      onPress={() => openGlassPreview(item.illustration, item.name)}
+                      style={({ pressed }) => [
+                        styles.imagePreviewButton,
+                        styles.glassVisualWrap,
+                        pressed && styles.imagePreviewButtonPressed,
+                      ]}
+                    >
                       <GlasswareVisual kind={item.illustration} />
-                    </View>
+                    </Pressable>
                     <Text style={styles.glassCardTitle}>{item.name}</Text>
                     <Text style={styles.glassCardBody}>{item.use}</Text>
                   </View>
@@ -482,7 +533,15 @@ export default function App() {
                       return (
                         <View key={result.sourceId} style={styles.searchResultCard}>
                           {result.imageUrl ? (
-                            <Image source={{ uri: result.imageUrl }} style={styles.searchResultImage} />
+                            <Pressable
+                              onPress={() => openRemoteImagePreview(result.imageUrl!, result.name)}
+                              style={({ pressed }) => [
+                                styles.imagePreviewButton,
+                                pressed && styles.imagePreviewButtonPressed,
+                              ]}
+                            >
+                              <Image source={{ uri: result.imageUrl }} style={styles.searchResultImage} />
+                            </Pressable>
                           ) : (
                             <View style={styles.searchResultPlaceholder}>
                               <Text style={styles.searchResultPlaceholderText}>Kein Bild</Text>
@@ -584,7 +643,19 @@ export default function App() {
                       ]}
                     >
                       <View style={styles.drinkCardHeader}>
-                        <DrinkVisual drink={drink} />
+                        <Pressable
+                          onPress={(event) => {
+                            event.stopPropagation();
+                            openDrinkPreview(drink);
+                          }}
+                          style={({ pressed }) => [
+                            styles.imagePreviewButton,
+                            styles.drinkVisualButton,
+                            pressed && styles.imagePreviewButtonPressed,
+                          ]}
+                        >
+                          <DrinkVisual drink={drink} />
+                        </Pressable>
                         <View style={styles.drinkCardBody}>
                           <View style={styles.drinkBadgeRow}>
                             <View style={styles.primaryBadge}>
@@ -938,6 +1009,67 @@ export default function App() {
           </Text>
         </View>
       </ScrollView>
+      <Modal
+        visible={!!imagePreview}
+        animationType="fade"
+        transparent
+        statusBarTranslucent
+        onRequestClose={closeImagePreview}
+      >
+        <View style={styles.previewOverlay}>
+          <Pressable style={styles.previewBackdrop} onPress={closeImagePreview} />
+          <SafeAreaView style={styles.previewSafeArea}>
+            <View style={styles.previewShell}>
+              <View style={styles.previewHeader}>
+                <Text style={styles.previewTitle} numberOfLines={2}>
+                  {imagePreview?.title}
+                </Text>
+                <Pressable
+                  onPress={closeImagePreview}
+                  style={({ pressed }) => [
+                    styles.previewCloseButton,
+                    pressed && styles.previewCloseButtonPressed,
+                  ]}
+                >
+                  <Text style={styles.previewCloseButtonText}>Schliessen</Text>
+                </Pressable>
+              </View>
+
+              <View style={[styles.previewCard, { minHeight: previewFrameHeight }]}>
+                {imagePreview?.kind === 'glass' ? (
+                  <GlasswareVisual
+                    kind={imagePreview.illustration}
+                    width={previewVisualSize}
+                    height={previewVisualSize}
+                  />
+                ) : null}
+
+                {imagePreview?.kind === 'drink' ? (
+                  <DrinkVisual
+                    drink={imagePreview.drink}
+                    size={previewVisualSize}
+                    resizeMode="contain"
+                  />
+                ) : null}
+
+                {imagePreview?.kind === 'remote' ? (
+                  <Image
+                    source={{ uri: imagePreview.uri }}
+                    style={[
+                      styles.previewImage,
+                      {
+                        width: previewFrameWidth,
+                        height: previewFrameHeight,
+                      },
+                    ]}
+                    resizeMode="contain"
+                  />
+                ) : null}
+              </View>
+            </View>
+          </SafeAreaView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
