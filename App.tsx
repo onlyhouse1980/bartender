@@ -323,7 +323,7 @@ export default function App() {
         showsVerticalScrollIndicator={false}
       >
         <LinearGradient
-          colors={['#173B38', '#8C4B31']}
+          colors={['#0A1517', '#41251F']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.hero}
@@ -398,11 +398,12 @@ export default function App() {
                     void handleSearch();
                   }}
                   placeholder="Zum Beispiel: Paper Plane"
-                  placeholderTextColor="#8B6B59"
+                  placeholderTextColor="#7F9590"
                   style={styles.searchInput}
                   returnKeyType="search"
                   autoCapitalize="words"
                   autoCorrect={false}
+                  keyboardAppearance="dark"
                 />
 
                 <Pressable
@@ -428,7 +429,7 @@ export default function App() {
                   <Text style={styles.searchMessage}>{searchMessage}</Text>
                 ) : null}
                 {isSearching ? (
-                  <ActivityIndicator color="#1E4B45" style={styles.searchSpinner} />
+                  <ActivityIndicator color="#62C9B7" style={styles.searchSpinner} />
                 ) : null}
 
                 {searchResults.length ? (
@@ -760,11 +761,12 @@ export default function App() {
                       value={ingredientSearchQuery}
                       onChangeText={handleIngredientSearchChange}
                       placeholder="Zutat suchen"
-                      placeholderTextColor="#8B6B59"
+                      placeholderTextColor="#7F9590"
                       style={[styles.searchInput, quizLocked && styles.quizInputDisabled]}
                       editable={!quizLocked}
                       autoCapitalize="words"
                       autoCorrect={false}
+                      keyboardAppearance="dark"
                     />
 
                     <Text style={styles.quizSelectionCount}>
@@ -992,7 +994,7 @@ function formatEuro(amount: number) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F6F1E6',
+    backgroundColor: '#0B1315',
   },
   content: {
     paddingBottom: 36,
@@ -1003,9 +1005,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 26,
     borderRadius: 28,
-    shadowColor: '#0F221E',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.22,
+    shadowOpacity: 0.32,
     shadowRadius: 18,
     elevation: 10,
   },
@@ -1027,38 +1029,38 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 18,
     paddingVertical: 11,
-    backgroundColor: '#F1E4D1',
+    backgroundColor: '#132025',
     borderWidth: 1,
-    borderColor: '#E4D3BC',
+    borderColor: '#284048',
   },
   viewSwitchChipActive: {
-    backgroundColor: '#1E4B45',
-    borderColor: '#1E4B45',
+    backgroundColor: '#276C62',
+    borderColor: '#2F8B7E',
   },
   viewSwitchChipPressed: {
     opacity: 0.94,
   },
   viewSwitchText: {
-    color: '#5D4538',
+    color: '#B7C3C0',
     fontSize: 14,
     fontWeight: '700',
   },
   viewSwitchTextActive: {
-    color: '#FFF7EB',
+    color: '#F4EEE4',
   },
   section: {
     marginTop: 28,
     paddingHorizontal: 18,
   },
   sectionTitle: {
-    color: '#27170F',
+    color: '#F5E9D8',
     fontSize: 29,
     lineHeight: 34,
     fontWeight: '700',
     fontFamily: Platform.select({ ios: 'Georgia', default: undefined }),
   },
   sectionIntro: {
-    color: '#624B3E',
+    color: '#AAB7B4',
     fontSize: 15,
     lineHeight: 22,
     marginTop: 8,
@@ -1072,22 +1074,22 @@ const styles = StyleSheet.create({
     width: 220,
     borderRadius: 22,
     padding: 18,
-    backgroundColor: '#FBF4E7',
+    backgroundColor: '#101A1E',
     borderWidth: 1,
-    borderColor: '#E7D8C5',
+    borderColor: '#23373F',
   },
   glassVisualWrap: {
     marginBottom: 14,
     alignItems: 'center',
   },
   glassCardTitle: {
-    color: '#8A4929',
+    color: '#E8BF87',
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 8,
   },
   glassCardBody: {
-    color: '#5C453A',
+    color: '#B7C3C0',
     fontSize: 14,
     lineHeight: 22,
   },
@@ -1095,24 +1097,24 @@ const styles = StyleSheet.create({
     marginTop: 16,
     borderRadius: 24,
     padding: 18,
-    backgroundColor: '#FFF9F1',
+    backgroundColor: '#101A1E',
     borderWidth: 1,
-    borderColor: '#E7D8C5',
+    borderColor: '#23373F',
     gap: 12,
   },
   searchInput: {
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#D9C4AA',
-    backgroundColor: '#FFFDF9',
+    borderColor: '#2B4048',
+    backgroundColor: '#0C1518',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    color: '#2F2019',
+    color: '#F3ECE0',
     fontSize: 16,
   },
   searchButton: {
     borderRadius: 18,
-    backgroundColor: '#1E4B45',
+    backgroundColor: '#276C62',
     paddingHorizontal: 16,
     paddingVertical: 14,
     alignItems: 'center',
@@ -1124,24 +1126,24 @@ const styles = StyleSheet.create({
     opacity: 0.92,
   },
   searchButtonText: {
-    color: '#FFF6E7',
+    color: '#F5EFE5',
     fontSize: 15,
     fontWeight: '700',
   },
   searchSource: {
-    color: '#8A654F',
+    color: '#90A49F',
     fontSize: 12,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
     fontWeight: '700',
   },
   searchError: {
-    color: '#A03E2F',
+    color: '#F08A78',
     fontSize: 14,
     lineHeight: 20,
   },
   searchMessage: {
-    color: '#245B51',
+    color: '#78D0C1',
     fontSize: 14,
     lineHeight: 20,
   },
@@ -1155,9 +1157,9 @@ const styles = StyleSheet.create({
   searchResultCard: {
     borderRadius: 22,
     padding: 14,
-    backgroundColor: '#FFFCF7',
+    backgroundColor: '#0E171A',
     borderWidth: 1,
-    borderColor: '#E8D7C2',
+    borderColor: '#22353C',
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
@@ -1166,18 +1168,18 @@ const styles = StyleSheet.create({
     width: 92,
     height: 92,
     borderRadius: 20,
-    backgroundColor: '#E7D8C5',
+    backgroundColor: '#1A252A',
   },
   searchResultPlaceholder: {
     width: 92,
     height: 92,
     borderRadius: 20,
-    backgroundColor: '#E9DDCC',
+    backgroundColor: '#182227',
     alignItems: 'center',
     justifyContent: 'center',
   },
   searchResultPlaceholderText: {
-    color: '#7C5D4B',
+    color: '#A0AEAB',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -1185,26 +1187,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   searchResultTitle: {
-    color: '#26150F',
+    color: '#F4EBDE',
     fontSize: 20,
     lineHeight: 24,
     fontWeight: '700',
     fontFamily: Platform.select({ ios: 'Georgia', default: undefined }),
   },
   searchResultMeta: {
-    color: '#845B49',
+    color: '#95A9A4',
     fontSize: 13,
     lineHeight: 19,
     marginTop: 4,
   },
   searchResultPreview: {
-    color: '#563F33',
+    color: '#C5D0CD',
     fontSize: 14,
     lineHeight: 21,
     marginTop: 10,
   },
   searchResultLabel: {
-    color: '#A5653B',
+    color: '#E4B277',
     fontSize: 12,
     fontWeight: '700',
     textTransform: 'uppercase',
@@ -1212,7 +1214,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   searchResultIngredients: {
-    color: '#4E382E',
+    color: '#D2DBD8',
     fontSize: 14,
     lineHeight: 20,
     marginTop: 4,
@@ -1223,21 +1225,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 999,
-    backgroundColor: '#8A4929',
+    backgroundColor: '#7C4C30',
   },
   searchActionButtonMuted: {
-    backgroundColor: '#E7D6C0',
+    backgroundColor: '#1A272C',
   },
   searchActionButtonPressed: {
     opacity: 0.92,
   },
   searchActionButtonText: {
-    color: '#FFF7EE',
+    color: '#FFF5E9',
     fontSize: 13,
     fontWeight: '700',
   },
   searchActionButtonTextMuted: {
-    color: '#6B4A39',
+    color: '#9BAAA6',
   },
   filterRow: {
     paddingTop: 16,
@@ -1248,40 +1250,40 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 15,
     paddingVertical: 10,
-    backgroundColor: '#F1E4D1',
+    backgroundColor: '#132025',
     borderWidth: 1,
-    borderColor: '#E4D3BC',
+    borderColor: '#284048',
   },
   filterChipActive: {
-    backgroundColor: '#1E4B45',
-    borderColor: '#1E4B45',
+    backgroundColor: '#276C62',
+    borderColor: '#2F8B7E',
   },
   filterChipText: {
-    color: '#5D4538',
+    color: '#B7C3C0',
     fontSize: 14,
     fontWeight: '600',
   },
   filterChipTextActive: {
-    color: '#FFF7EB',
+    color: '#F4EEE4',
   },
   drinkList: {
     marginTop: 18,
     gap: 16,
   },
   drinkCard: {
-    backgroundColor: '#FFFBF5',
+    backgroundColor: '#0F191D',
     borderRadius: 28,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E9DCC9',
-    shadowColor: '#6E5242',
+    borderColor: '#23373F',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.14,
     shadowRadius: 18,
     elevation: 4,
   },
   drinkCardExpanded: {
-    borderColor: '#D5B999',
+    borderColor: '#3B5961',
   },
   drinkCardPressed: {
     opacity: 0.95,
@@ -1300,55 +1302,55 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   primaryBadge: {
-    backgroundColor: '#184A45',
+    backgroundColor: '#245C54',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
   },
   primaryBadgeText: {
-    color: '#F9F2E6',
+    color: '#EEF7F3',
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.4,
   },
   secondaryBadge: {
-    backgroundColor: '#F1E2CF',
+    backgroundColor: '#1B272C',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
   },
   secondaryBadgeText: {
-    color: '#73482F',
+    color: '#E1B37B',
     fontSize: 12,
     fontWeight: '700',
   },
   sourceBadge: {
-    backgroundColor: '#E7D6BD',
+    backgroundColor: '#241C19',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
   },
   sourceBadgeText: {
-    color: '#6C432B',
+    color: '#E0B17A',
     fontSize: 12,
     fontWeight: '700',
   },
   drinkName: {
     marginTop: 10,
-    color: '#25160F',
+    color: '#F5E9D8',
     fontSize: 24,
     lineHeight: 28,
     fontWeight: '700',
     fontFamily: Platform.select({ ios: 'Georgia', default: undefined }),
   },
   drinkMeta: {
-    color: '#845B49',
+    color: '#94A8A4',
     fontSize: 13,
     lineHeight: 19,
     marginTop: 6,
   },
   drinkSummary: {
-    color: '#5E4539',
+    color: '#C4D0CC',
     fontSize: 14,
     lineHeight: 22,
     marginTop: 10,
@@ -1357,21 +1359,21 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   inlineLabel: {
-    color: '#A5653B',
+    color: '#DEAB70',
     fontSize: 12,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.7,
   },
   inlineValue: {
-    color: '#3B2A22',
+    color: '#F0E7DA',
     fontSize: 14,
     lineHeight: 20,
     marginTop: 4,
   },
   tapHint: {
     marginTop: 14,
-    color: '#8A654F',
+    color: '#93A5A1',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -1380,13 +1382,13 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   detailBlock: {
-    backgroundColor: '#F9F2E7',
+    backgroundColor: '#0C1518',
     borderRadius: 20,
     padding: 16,
     gap: 10,
   },
   detailTitle: {
-    color: '#1E4B45',
+    color: '#74C8B9',
     fontSize: 17,
     fontWeight: '700',
   },
@@ -1397,13 +1399,13 @@ const styles = StyleSheet.create({
   },
   detailAmount: {
     width: 64,
-    color: '#8A4A2A',
+    color: '#E1A86B',
     fontSize: 14,
     fontWeight: '700',
   },
   detailText: {
     flex: 1,
-    color: '#553E34',
+    color: '#D1DAD7',
     fontSize: 14,
     lineHeight: 21,
   },
@@ -1418,8 +1420,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     textAlign: 'center',
     overflow: 'hidden',
-    backgroundColor: '#E7D5BD',
-    color: '#6B422E',
+    backgroundColor: '#23353C',
+    color: '#E3B57E',
     fontSize: 13,
     fontWeight: '700',
     lineHeight: 24,
@@ -1427,12 +1429,12 @@ const styles = StyleSheet.create({
   tipPanel: {
     borderRadius: 20,
     padding: 16,
-    backgroundColor: '#FFF8ED',
+    backgroundColor: '#111B1F',
     borderWidth: 1,
-    borderColor: '#E7D8C5',
+    borderColor: '#24373F',
   },
   tipTitle: {
-    color: '#A15D35',
+    color: '#E0A86E',
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.7,
@@ -1440,7 +1442,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   tipBody: {
-    color: '#563F34',
+    color: '#CDD6D3',
     fontSize: 14,
     lineHeight: 21,
   },
@@ -1449,16 +1451,16 @@ const styles = StyleSheet.create({
     marginHorizontal: 18,
     borderRadius: 26,
     padding: 20,
-    backgroundColor: '#173B38',
+    backgroundColor: '#102327',
   },
   footerTitle: {
-    color: '#F5ECDD',
+    color: '#F4EBDE',
     fontSize: 21,
     fontWeight: '700',
     marginBottom: 8,
   },
   footerBody: {
-    color: '#E9DAC7',
+    color: '#C8D3CF',
     fontSize: 15,
     lineHeight: 22,
   },
@@ -1466,21 +1468,21 @@ const styles = StyleSheet.create({
     marginTop: 18,
     borderRadius: 24,
     padding: 20,
-    backgroundColor: '#173B38',
+    backgroundColor: '#102327',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 16,
   },
   tipJarLabel: {
-    color: '#E7D9C6',
+    color: '#AFC1BC',
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.7,
     textTransform: 'uppercase',
   },
   tipJarValue: {
-    color: '#FFF7EA',
+    color: '#F7EAD8',
     fontSize: 34,
     lineHeight: 38,
     fontWeight: '700',
@@ -1488,7 +1490,7 @@ const styles = StyleSheet.create({
     fontFamily: Platform.select({ ios: 'Georgia', default: undefined }),
   },
   tipJarMeta: {
-    color: '#E7D9C6',
+    color: '#AFC1BC',
     fontSize: 14,
     lineHeight: 20,
     maxWidth: 120,
@@ -1498,32 +1500,32 @@ const styles = StyleSheet.create({
     marginTop: 16,
     borderRadius: 24,
     padding: 18,
-    backgroundColor: '#FFF9F1',
+    backgroundColor: '#101A1E',
     borderWidth: 1,
-    borderColor: '#E7D8C5',
+    borderColor: '#23373F',
     gap: 12,
   },
   quizStepLabel: {
-    color: '#A5653B',
+    color: '#DEAB70',
     fontSize: 12,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.7,
   },
   quizDrinkName: {
-    color: '#27170F',
+    color: '#F5E9D8',
     fontSize: 30,
     lineHeight: 34,
     fontWeight: '700',
     fontFamily: Platform.select({ ios: 'Georgia', default: undefined }),
   },
   quizDrinkMeta: {
-    color: '#845B49',
+    color: '#94A8A4',
     fontSize: 14,
     lineHeight: 20,
   },
   quizDrinkPrompt: {
-    color: '#533E33',
+    color: '#C5D1CD',
     fontSize: 15,
     lineHeight: 22,
   },
@@ -1535,24 +1537,24 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   feedbackCardSuccess: {
-    backgroundColor: '#EDF7F1',
-    borderColor: '#B7D7C1',
+    backgroundColor: '#10251F',
+    borderColor: '#2D6657',
   },
   feedbackCardWarning: {
-    backgroundColor: '#FFF4E8',
-    borderColor: '#E8CCAF',
+    backgroundColor: '#281B18',
+    borderColor: '#724638',
   },
   feedbackCardInfo: {
-    backgroundColor: '#EEF4F6',
-    borderColor: '#BFD2D9',
+    backgroundColor: '#142025',
+    borderColor: '#324C55',
   },
   feedbackTitle: {
-    color: '#1E4B45',
+    color: '#F4EBDD',
     fontSize: 17,
     fontWeight: '700',
   },
   feedbackBody: {
-    color: '#543E33',
+    color: '#CDD6D3',
     fontSize: 14,
     lineHeight: 21,
   },
@@ -1562,13 +1564,13 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: '#8A4929',
+    backgroundColor: '#7C4C30',
   },
   cheatButtonPressed: {
     opacity: 0.92,
   },
   cheatButtonText: {
-    color: '#FFF7EE',
+    color: '#FFF5E9',
     fontSize: 13,
     fontWeight: '700',
   },
@@ -1576,20 +1578,20 @@ const styles = StyleSheet.create({
     marginTop: 4,
     borderRadius: 18,
     padding: 14,
-    backgroundColor: '#FFFCF7',
+    backgroundColor: '#0D1619',
     borderWidth: 1,
-    borderColor: '#D4E2E6',
+    borderColor: '#2A4048',
     gap: 8,
   },
   answerRevealTitle: {
-    color: '#1E4B45',
+    color: '#7ACDBE',
     fontSize: 13,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },
   answerRevealBody: {
-    color: '#503A2F',
+    color: '#D3DCDA',
     fontSize: 14,
     lineHeight: 21,
   },
@@ -1603,18 +1605,18 @@ const styles = StyleSheet.create({
   },
   answerRevealAmount: {
     width: 68,
-    color: '#8A4A2A',
+    color: '#E1A86B',
     fontSize: 13,
     fontWeight: '700',
   },
   answerRevealText: {
     flex: 1,
-    color: '#503A2F',
+    color: '#D3DCDA',
     fontSize: 14,
     lineHeight: 21,
   },
   quizCardTitle: {
-    color: '#1E4B45',
+    color: '#F0E6D8',
     fontSize: 19,
     fontWeight: '700',
   },
@@ -1626,35 +1628,35 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 11,
-    backgroundColor: '#F5E7D5',
+    backgroundColor: '#132025',
     borderWidth: 1,
-    borderColor: '#E2CFB6',
+    borderColor: '#284048',
   },
   quizGlassChipActive: {
-    backgroundColor: '#1E4B45',
-    borderColor: '#1E4B45',
+    backgroundColor: '#276C62',
+    borderColor: '#2F8B7E',
   },
   quizGlassChipPressed: {
     opacity: 0.94,
   },
   quizGlassChipText: {
-    color: '#62483A',
+    color: '#B7C3C0',
     fontSize: 14,
     fontWeight: '700',
   },
   quizGlassChipTextActive: {
-    color: '#FFF7EB',
+    color: '#F4EEE4',
   },
   quizChipDisabled: {
     opacity: 0.6,
   },
   quizSelectionCount: {
-    color: '#8A4A2A',
+    color: '#E1A86B',
     fontSize: 13,
     fontWeight: '700',
   },
   quizSelectionText: {
-    color: '#5C453A',
+    color: '#C4D0CC',
     fontSize: 14,
     lineHeight: 20,
   },
@@ -1667,12 +1669,12 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 9,
-    backgroundColor: '#1E4B45',
+    backgroundColor: '#276C62',
     borderWidth: 1,
-    borderColor: '#1E4B45',
+    borderColor: '#2F8B7E',
   },
   selectedIngredientChipText: {
-    color: '#FFF7EB',
+    color: '#F4EEE4',
     fontSize: 13,
     fontWeight: '700',
   },
@@ -1685,21 +1687,21 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 9,
-    backgroundColor: '#F6EBDC',
+    backgroundColor: '#132025',
     borderWidth: 1,
-    borderColor: '#E0D0BC',
+    borderColor: '#284048',
   },
   ingredientChipActive: {
-    backgroundColor: '#8A4929',
-    borderColor: '#8A4929',
+    backgroundColor: '#7C4C30',
+    borderColor: '#8E5A39',
   },
   ingredientChipText: {
-    color: '#5D4538',
+    color: '#B7C3C0',
     fontSize: 13,
     fontWeight: '700',
   },
   ingredientChipTextActive: {
-    color: '#FFF7EE',
+    color: '#FFF5E9',
   },
   quizIngredientChipPressed: {
     opacity: 0.92,
@@ -1708,7 +1710,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   emptyIngredientState: {
-    color: '#7A5B48',
+    color: '#93A5A1',
     fontSize: 14,
     lineHeight: 20,
   },
@@ -1720,7 +1722,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     alignItems: 'center',
-    backgroundColor: '#1E4B45',
+    backgroundColor: '#276C62',
   },
   serveButtonDisabled: {
     opacity: 0.45,
@@ -1729,7 +1731,7 @@ const styles = StyleSheet.create({
     opacity: 0.92,
   },
   serveButtonText: {
-    color: '#FFF7EB',
+    color: '#F4EEE4',
     fontSize: 17,
     fontWeight: '700',
   },

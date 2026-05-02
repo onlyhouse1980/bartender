@@ -17,32 +17,32 @@ type GlasswareVisualProps = {
 
 const PALETTES: Record<GlasswareIllustration, { background: [string, string]; accent: [string, string] }> = {
   highball: {
-    background: ['#F7E9D6', '#E8C7A1'],
-    accent: ['#D8ECF1', '#B7D8DF'],
+    background: ['#101A1E', '#18323A'],
+    accent: ['#7CB7C4', '#4A7280'],
   },
   rocks: {
-    background: ['#F4E3CF', '#DEBB92'],
-    accent: ['#E6DCC7', '#C7B89A'],
+    background: ['#11161A', '#2A221D'],
+    accent: ['#CCC2B0', '#8C7C60'],
   },
   wine: {
-    background: ['#F1E2D4', '#E7C6A9'],
-    accent: ['#E8F0D9', '#C7D7A7'],
+    background: ['#11191D', '#203027'],
+    accent: ['#DCE8C1', '#8EA16E'],
   },
   coupe: {
-    background: ['#F4E2D3', '#E0BB99'],
-    accent: ['#F3E8C8', '#E4D097'],
+    background: ['#13171B', '#30231D'],
+    accent: ['#E7D8A3', '#A68E4B'],
   },
   martini: {
-    background: ['#EEE1D7', '#D9BEAA'],
-    accent: ['#DFEFE6', '#B8D3C6'],
+    background: ['#10181D', '#203038'],
+    accent: ['#CDE4D8', '#6E9A88'],
   },
   mule: {
-    background: ['#F0DFD1', '#DDB192'],
-    accent: ['#C98156', '#A85B33'],
+    background: ['#151312', '#322018'],
+    accent: ['#BE7A4F', '#7C4A2D'],
   },
   hurricane: {
-    background: ['#F5E4D1', '#E2BF95'],
-    accent: ['#F0D9A4', '#D8AE63'],
+    background: ['#12171A', '#2A251B'],
+    accent: ['#E3C983', '#A88840'],
   },
 };
 
@@ -64,8 +64,8 @@ export function GlasswareVisual({
           <Stop offset="100%" stopColor={palette.background[1]} />
         </SvgLinearGradient>
         <SvgLinearGradient id={glassFillId} x1="0%" y1="0%" x2="0%" y2="100%">
-          <Stop offset="0%" stopColor="rgba(255,255,255,0.5)" />
-          <Stop offset="100%" stopColor="rgba(255,255,255,0.14)" />
+          <Stop offset="0%" stopColor="rgba(255,255,255,0.38)" />
+          <Stop offset="100%" stopColor="rgba(255,255,255,0.1)" />
         </SvgLinearGradient>
         <SvgLinearGradient id={accentId} x1="0%" y1="0%" x2="100%" y2="100%">
           <Stop offset="0%" stopColor={palette.accent[0]} />
@@ -81,10 +81,10 @@ export function GlasswareVisual({
         height="143"
         rx="24"
         fill="none"
-        stroke="rgba(110,77,55,0.12)"
+        stroke="rgba(255,255,255,0.08)"
         strokeWidth="1.5"
       />
-      <Ellipse cx="92" cy="123" rx="44" ry="8" fill="rgba(92,65,47,0.12)" />
+      <Ellipse cx="92" cy="123" rx="44" ry="8" fill="rgba(0,0,0,0.3)" />
 
       <GlassShape kind={kind} glassFillId={glassFillId} accentId={accentId} />
     </Svg>
