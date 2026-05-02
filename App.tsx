@@ -1,8 +1,10 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   Image,
   Linking,
   Modal,
@@ -13,8 +15,11 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  type GestureResponderEvent,
+  type StyleProp,
   useWindowDimensions,
   View,
+  type ViewStyle,
 } from 'react-native';
 
 import { DrinkVisual } from './src/components/DrinkVisual';
@@ -63,11 +68,58 @@ type ImagePreview =
   | { kind: 'drink'; drink: Drink; title: string }
   | { kind: 'glass'; illustration: GlasswareIllustration; title: string }
   | { kind: 'remote'; uri: string; title: string };
+type ImagePreviewFrame = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+type ImagePreviewTriggerProps = {
+  children: ReactNode;
+  onOpen: (frame: ImagePreviewFrame) => void;
+  style?: StyleProp<ViewStyle>;
+  pressedStyle?: StyleProp<ViewStyle>;
+  stopPropagation?: boolean;
+};
+
+function ImagePreviewTrigger({
+  children,
+  onOpen,
+  style,
+  pressedStyle,
+  stopPropagation = false,
+}: ImagePreviewTriggerProps) {
+  const triggerRef = useRef<View | null>(null);
+
+  function handlePress(event: GestureResponderEvent) {
+    if (stopPropagation) {
+      event.stopPropagation();
+    }
+
+    triggerRef.current?.measureInWindow((x, y, width, height) => {
+      onOpen({
+        x,
+        y,
+        width,
+        height,
+      });
+    });
+  }
+
+  return (
+    <View ref={triggerRef} collapsable={false}>
+      <Pressable onPress={handlePress} style={({ pressed }) => [style, pressed && pressedStyle]}>
+        {children}
+      </Pressable>
+    </View>
+  );
+}
 
 export default function App() {
   const scrollViewRef = useRef<ScrollView | null>(null);
   const librarySectionOffsetRef = useRef(0);
   const quizSectionOffsetRef = useRef(0);
+  const previewAnimation = useRef(new Animated.Value(0)).current;
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
   const [activeView, setActiveView] = useState<AppView>('library');
   const [selectedCategory, setSelectedCategory] = useState('Alle');
@@ -84,7 +136,9 @@ export default function App() {
   const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
   const [ingredientSearchQuery, setIngredientSearchQuery] = useState('');
   const [quizStatus, setQuizStatus] = useState<QuizStatus>({ kind: 'idle' });
+  const [isImagePreviewVisible, setIsImagePreviewVisible] = useState(false);
   const [imagePreview, setImagePreview] = useState<ImagePreview | null>(null);
+  const [imagePreviewOriginFrame, setImagePreviewOriginFrame] = useState<ImagePreviewFrame | null>(null);
   const cheatTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -123,9 +177,53 @@ export default function App() {
     !quizLocked &&
     !!selectedGlass &&
     (selectedIngredients.length > 0 || currentDrink.ingredients.length === 0);
-  const previewFrameWidth = Math.min(viewportWidth - 24, 640);
-  const previewFrameHeight = Math.min(viewportHeight - 160, 640);
-  const previewVisualSize = Math.min(previewFrameWidth, previewFrameHeight);
+  const previewVisualSize = Math.min(viewportWidth - 28, viewportHeight - 220, 680);
+  const previewTargetFrame = {
+    x: (viewportWidth - previewVisualSize) / 2,
+    y: Math.max(108, (viewportHeight - previewVisualSize) / 2 + 12),
+    width: previewVisualSize,
+    height: previewVisualSize,
+  };
+  const previewSourceFrame = resolvePreviewFrame(
+    imagePreviewOriginFrame,
+    viewportWidth,
+    viewportHeight,
+    previewTargetFrame
+  );
+  const previewTranslateX = previewAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [
+      previewSourceFrame.x + previewSourceFrame.width / 2 - (previewTargetFrame.x + previewTargetFrame.width / 2),
+      0,
+    ],
+  });
+  const previewTranslateY = previewAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [
+      previewSourceFrame.y + previewSourceFrame.height / 2 - (previewTargetFrame.y + previewTargetFrame.height / 2),
+      0,
+    ],
+  });
+  const previewScaleX = previewAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [previewSourceFrame.width / previewTargetFrame.width, 1],
+  });
+  const previewScaleY = previewAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [previewSourceFrame.height / previewTargetFrame.height, 1],
+  });
+  const previewBackdropOpacity = previewAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+  const previewHeaderOpacity = previewAnimation.interpolate({
+    inputRange: [0, 0.7, 1],
+    outputRange: [0, 0, 1],
+  });
+  const previewHeaderTranslateY = previewAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-16, 0],
+  });
   const serveButtonLabel =
     quizStatus.kind === 'correct'
       ? 'Richtig serviert'
@@ -364,32 +462,78 @@ export default function App() {
     });
   }
 
-  function openDrinkPreview(drink: Drink) {
-    setImagePreview({
-      kind: 'drink',
-      drink,
-      title: drink.name,
+  function animateImagePreview(toValue: 0 | 1, onComplete?: () => void) {
+    previewAnimation.stopAnimation();
+    Animated.timing(previewAnimation, {
+      toValue,
+      duration: toValue === 1 ? 280 : 220,
+      easing: toValue === 1 ? Easing.out(Easing.cubic) : Easing.inOut(Easing.cubic),
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished) {
+        onComplete?.();
+      }
     });
   }
 
-  function openGlassPreview(illustration: GlasswareIllustration, title: string) {
-    setImagePreview({
-      kind: 'glass',
-      illustration,
-      title,
+  function showImagePreview(preview: ImagePreview, originFrame: ImagePreviewFrame) {
+    setImagePreview(preview);
+    setImagePreviewOriginFrame(originFrame);
+    setIsImagePreviewVisible(true);
+    previewAnimation.setValue(0);
+
+    requestAnimationFrame(() => {
+      animateImagePreview(1);
     });
   }
 
-  function openRemoteImagePreview(uri: string, title: string) {
-    setImagePreview({
-      kind: 'remote',
-      uri,
-      title,
-    });
+  function openDrinkPreview(drink: Drink, originFrame: ImagePreviewFrame) {
+    showImagePreview(
+      {
+        kind: 'drink',
+        drink,
+        title: drink.name,
+      },
+      originFrame
+    );
+  }
+
+  function openGlassPreview(
+    illustration: GlasswareIllustration,
+    title: string,
+    originFrame: ImagePreviewFrame
+  ) {
+    showImagePreview(
+      {
+        kind: 'glass',
+        illustration,
+        title,
+      },
+      originFrame
+    );
+  }
+
+  function openRemoteImagePreview(uri: string, title: string, originFrame: ImagePreviewFrame) {
+    showImagePreview(
+      {
+        kind: 'remote',
+        uri,
+        title,
+      },
+      originFrame
+    );
   }
 
   function closeImagePreview() {
-    setImagePreview(null);
+    if (!isImagePreviewVisible) {
+      return;
+    }
+
+    animateImagePreview(0, () => {
+      setIsImagePreviewVisible(false);
+      setImagePreview(null);
+      setImagePreviewOriginFrame(null);
+    });
   }
 
   return (
@@ -446,16 +590,15 @@ export default function App() {
               >
                 {glasswareGuide.map((item) => (
                   <View key={item.name} style={styles.glassCard}>
-                    <Pressable
-                      onPress={() => openGlassPreview(item.illustration, item.name)}
-                      style={({ pressed }) => [
-                        styles.imagePreviewButton,
-                        styles.glassVisualWrap,
-                        pressed && styles.imagePreviewButtonPressed,
-                      ]}
+                    <ImagePreviewTrigger
+                      onOpen={(originFrame) =>
+                        openGlassPreview(item.illustration, item.name, originFrame)
+                      }
+                      style={[styles.imagePreviewButton, styles.glassVisualWrap]}
+                      pressedStyle={styles.imagePreviewButtonPressed}
                     >
                       <GlasswareVisual kind={item.illustration} />
-                    </Pressable>
+                    </ImagePreviewTrigger>
                     <Text style={styles.glassCardTitle}>{item.name}</Text>
                     <Text style={styles.glassCardBody}>{item.use}</Text>
                   </View>
@@ -533,15 +676,15 @@ export default function App() {
                       return (
                         <View key={result.sourceId} style={styles.searchResultCard}>
                           {result.imageUrl ? (
-                            <Pressable
-                              onPress={() => openRemoteImagePreview(result.imageUrl!, result.name)}
-                              style={({ pressed }) => [
-                                styles.imagePreviewButton,
-                                pressed && styles.imagePreviewButtonPressed,
-                              ]}
+                            <ImagePreviewTrigger
+                              onOpen={(originFrame) =>
+                                openRemoteImagePreview(result.imageUrl!, result.name, originFrame)
+                              }
+                              style={styles.imagePreviewButton}
+                              pressedStyle={styles.imagePreviewButtonPressed}
                             >
                               <Image source={{ uri: result.imageUrl }} style={styles.searchResultImage} />
-                            </Pressable>
+                            </ImagePreviewTrigger>
                           ) : (
                             <View style={styles.searchResultPlaceholder}>
                               <Text style={styles.searchResultPlaceholderText}>Kein Bild</Text>
@@ -643,19 +786,14 @@ export default function App() {
                       ]}
                     >
                       <View style={styles.drinkCardHeader}>
-                        <Pressable
-                          onPress={(event) => {
-                            event.stopPropagation();
-                            openDrinkPreview(drink);
-                          }}
-                          style={({ pressed }) => [
-                            styles.imagePreviewButton,
-                            styles.drinkVisualButton,
-                            pressed && styles.imagePreviewButtonPressed,
-                          ]}
+                        <ImagePreviewTrigger
+                          onOpen={(originFrame) => openDrinkPreview(drink, originFrame)}
+                          style={[styles.imagePreviewButton, styles.drinkVisualButton]}
+                          pressedStyle={styles.imagePreviewButtonPressed}
+                          stopPropagation
                         >
                           <DrinkVisual drink={drink} />
-                        </Pressable>
+                        </ImagePreviewTrigger>
                         <View style={styles.drinkCardBody}>
                           <View style={styles.drinkBadgeRow}>
                             <View style={styles.primaryBadge}>
@@ -1010,17 +1148,29 @@ export default function App() {
         </View>
       </ScrollView>
       <Modal
-        visible={!!imagePreview}
-        animationType="fade"
+        visible={isImagePreviewVisible}
+        animationType="none"
         transparent
         statusBarTranslucent
         onRequestClose={closeImagePreview}
       >
         <View style={styles.previewOverlay}>
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.previewBackdropShade, { opacity: previewBackdropOpacity }]}
+          />
           <Pressable style={styles.previewBackdrop} onPress={closeImagePreview} />
-          <SafeAreaView style={styles.previewSafeArea}>
-            <View style={styles.previewShell}>
-              <View style={styles.previewHeader}>
+          <SafeAreaView pointerEvents="box-none" style={styles.previewSafeArea}>
+            <Animated.View
+              style={[
+                styles.previewHeader,
+                {
+                  opacity: previewHeaderOpacity,
+                  transform: [{ translateY: previewHeaderTranslateY }],
+                },
+              ]}
+            >
+              <View style={styles.previewHeaderBody}>
                 <Text style={styles.previewTitle} numberOfLines={2}>
                   {imagePreview?.title}
                 </Text>
@@ -1034,8 +1184,26 @@ export default function App() {
                   <Text style={styles.previewCloseButtonText}>Schliessen</Text>
                 </Pressable>
               </View>
+            </Animated.View>
 
-              <View style={[styles.previewCard, { minHeight: previewFrameHeight }]}>
+            {imagePreview ? (
+              <Animated.View
+                style={[
+                  styles.previewAnimatedFrame,
+                  {
+                    left: previewTargetFrame.x,
+                    top: previewTargetFrame.y,
+                    width: previewTargetFrame.width,
+                    height: previewTargetFrame.height,
+                    transform: [
+                      { translateX: previewTranslateX },
+                      { translateY: previewTranslateY },
+                      { scaleX: previewScaleX },
+                      { scaleY: previewScaleY },
+                    ],
+                  },
+                ]}
+              >
                 {imagePreview?.kind === 'glass' ? (
                   <GlasswareVisual
                     kind={imagePreview.illustration}
@@ -1055,23 +1223,43 @@ export default function App() {
                 {imagePreview?.kind === 'remote' ? (
                   <Image
                     source={{ uri: imagePreview.uri }}
-                    style={[
-                      styles.previewImage,
-                      {
-                        width: previewFrameWidth,
-                        height: previewFrameHeight,
-                      },
-                    ]}
+                    style={styles.previewImage}
                     resizeMode="contain"
                   />
                 ) : null}
-              </View>
-            </View>
+              </Animated.View>
+            ) : null}
           </SafeAreaView>
         </View>
       </Modal>
     </SafeAreaView>
   );
+}
+
+function resolvePreviewFrame(
+  frame: ImagePreviewFrame | null,
+  viewportWidth: number,
+  viewportHeight: number,
+  targetFrame: ImagePreviewFrame
+) {
+  if (
+    frame &&
+    Number.isFinite(frame.x) &&
+    Number.isFinite(frame.y) &&
+    frame.width > 0 &&
+    frame.height > 0
+  ) {
+    return frame;
+  }
+
+  const fallbackSize = Math.min(140, targetFrame.width * 0.34);
+
+  return {
+    x: viewportWidth / 2 - fallbackSize / 2,
+    y: viewportHeight / 2 - fallbackSize / 2,
+    width: fallbackSize,
+    height: fallbackSize,
+  };
 }
 
 function buildIngredientBank(drinkPool: Drink[]) {
@@ -1751,25 +1939,26 @@ const styles = StyleSheet.create({
   },
   previewOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(3, 7, 10, 0.92)',
   },
   previewBackdrop: {
     ...StyleSheet.absoluteFillObject,
   },
+  previewBackdropShade: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(3, 7, 10, 0.92)',
+  },
   previewSafeArea: {
     flex: 1,
   },
-  previewShell: {
-    flex: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
   previewHeader: {
+    paddingHorizontal: 12,
+    paddingTop: 10,
+  },
+  previewHeaderBody: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
-    marginBottom: 12,
   },
   previewTitle: {
     flex: 1,
@@ -1795,18 +1984,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  previewCard: {
-    flex: 1,
+  previewAnimatedFrame: {
+    position: 'absolute',
     borderRadius: 30,
-    padding: 20,
     backgroundColor: '#091114',
     borderWidth: 1,
     borderColor: '#24373F',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.22,
+    shadowRadius: 32,
+    elevation: 8,
   },
   previewImage: {
-    borderRadius: 28,
+    width: '100%',
+    height: '100%',
     backgroundColor: '#0F191D',
   },
   tipJarCard: {
