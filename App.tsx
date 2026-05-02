@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 
 import { DrinkVisual } from './src/components/DrinkVisual';
+import { GlasswareVisual } from './src/components/GlasswareVisual';
 import { drinks, glasswareGuide, type Drink } from './src/data/bartending';
 import {
   normalizeDrinkKey,
@@ -367,6 +368,9 @@ export default function App() {
               >
                 {glasswareGuide.map((item) => (
                   <View key={item.name} style={styles.glassCard}>
+                    <View style={styles.glassVisualWrap}>
+                      <GlasswareVisual kind={item.illustration} />
+                    </View>
                     <Text style={styles.glassCardTitle}>{item.name}</Text>
                     <Text style={styles.glassCardBody}>{item.use}</Text>
                   </View>
@@ -1071,6 +1075,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FBF4E7',
     borderWidth: 1,
     borderColor: '#E7D8C5',
+  },
+  glassVisualWrap: {
+    marginBottom: 14,
+    alignItems: 'center',
   },
   glassCardTitle: {
     color: '#8A4929',

@@ -25,6 +25,21 @@ export type DrinkArtworkSpec = {
   saltRim?: boolean;
 };
 
+export type GlasswareIllustration =
+  | 'highball'
+  | 'rocks'
+  | 'wine'
+  | 'coupe'
+  | 'martini'
+  | 'mule'
+  | 'hurricane';
+
+export type GlasswareGuideItem = {
+  name: string;
+  illustration: GlasswareIllustration;
+  use: string;
+};
+
 export type Drink = {
   id: string;
   name: string;
@@ -63,36 +78,43 @@ export const lessons = [
   },
 ] as const;
 
-export const glasswareGuide = [
+export const glasswareGuide: ReadonlyArray<GlasswareGuideItem> = [
   {
     name: 'Highball-Glas',
+    illustration: 'highball',
     use: 'Hoch, gut gekühlt und voller Eis für Longdrinks wie Mojito, Paloma und Gin Tonic.',
   },
   {
     name: 'Rocks-Glas',
+    illustration: 'rocks',
     use: 'Kurzer Tumbler für spirituosenbetonte Drinks oder Crushed-Ice-Serves wie Negroni und Caipirinha.',
   },
   {
     name: 'Weinglas',
+    illustration: 'wine',
     use: 'Große Schale für Spritz-Drinks, damit Schaumwein, Soda, Garnitur und Eis genug Raum haben.',
   },
   {
     name: 'Coupe',
+    illustration: 'coupe',
     use: 'Elegantes Stielglas für geshakte Drinks ohne Eis, etwa Margarita oder Espresso Martini.',
   },
   {
     name: 'Martiniglas',
+    illustration: 'martini',
     use: 'Markantes Stielglas für geradlinige Klassiker wie den Cosmopolitan ohne Eis im Glas.',
   },
   {
     name: 'Mule-Becher',
+    illustration: 'mule',
     use: 'Isolierter Becher für Ginger-Beer-Drinks; ein Highball-Glas ist in vielen Bars eine gute Alternative.',
   },
   {
     name: 'Hurricane-Glas',
+    illustration: 'hurricane',
     use: 'Geschwungenes Tropenglas für geblendete oder saftreiche Drinks wie Piña Colada.',
   },
-] as const;
+];
 
 export const drinks: Drink[] = [
   {
