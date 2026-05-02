@@ -1298,6 +1298,13 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     alignItems: 'center',
   },
+  imagePreviewButton: {
+    borderRadius: 22,
+    overflow: 'hidden',
+  },
+  imagePreviewButtonPressed: {
+    opacity: 0.9,
+  },
   glassCardTitle: {
     color: '#E8BF87',
     fontSize: 18,
@@ -1508,6 +1515,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 14,
+  },
+  drinkVisualButton: {
+    borderRadius: 28,
   },
   drinkCardBody: {
     flex: 1,
@@ -1738,6 +1748,66 @@ const styles = StyleSheet.create({
     color: '#93A5A1',
     fontSize: 13,
     lineHeight: 20,
+  },
+  previewOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(3, 7, 10, 0.92)',
+  },
+  previewBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  previewSafeArea: {
+    flex: 1,
+  },
+  previewShell: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  previewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 12,
+  },
+  previewTitle: {
+    flex: 1,
+    color: '#F5E9D8',
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: '700',
+    fontFamily: Platform.select({ ios: 'Georgia', default: undefined }),
+  },
+  previewCloseButton: {
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: '#132025',
+    borderWidth: 1,
+    borderColor: '#2D4249',
+  },
+  previewCloseButtonPressed: {
+    opacity: 0.9,
+  },
+  previewCloseButtonText: {
+    color: '#E8F0EE',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  previewCard: {
+    flex: 1,
+    borderRadius: 30,
+    padding: 20,
+    backgroundColor: '#091114',
+    borderWidth: 1,
+    borderColor: '#24373F',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewImage: {
+    borderRadius: 28,
+    backgroundColor: '#0F191D',
   },
   tipJarCard: {
     marginTop: 18,

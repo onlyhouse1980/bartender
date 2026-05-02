@@ -1,14 +1,14 @@
-const CACHE_NAME = 'barstart-de-1777716164875';
+const CACHE_NAME = 'barstart-de-1777717629588';
 const PRECACHE_URLS = [
-  "/_expo/static/js/web/index-2de9174cbd072dab3051dcd13c6fb009.js",
+  "/_expo/static/js/web/index-2dbed809589639e0f36a93f550f1c0ae.js",
   "/apple-touch-icon.png",
-  "/assets/assets/glassware-cutout/coupe-glass.3f4d1cc822d5509830ff0c40188205e1.png",
-  "/assets/assets/glassware-cutout/high-ball.f540f310bb3fff890f9cd54b6e2822e2.png",
-  "/assets/assets/glassware-cutout/hurricane-glass.06263eddadc57ef3a24ff28901df3aff.png",
+  "/assets/assets/glassware-cutout/coupe-glass.dff78a2b377a90d4604084cd6a4e580a.png",
+  "/assets/assets/glassware-cutout/high-ball.64030dbf1f466388d155328ffdaa243f.png",
+  "/assets/assets/glassware-cutout/hurricane-glass.38fc1b2dda158618ebaad39fe3c8e078.png",
   "/assets/assets/glassware-cutout/martini-glass.bbe01f10ff291a9ae9606b8bdc0610cd.png",
   "/assets/assets/glassware-cutout/mule-becher.69887e576a97b942c0f604cdcac541eb.png",
-  "/assets/assets/glassware-cutout/rocks-glass.c836bb495bfd7880f833a3dc636dd4ee.png",
-  "/assets/assets/glassware-cutout/wine-glass.85d34ba5c19af046c8d33f29548c6efa.png",
+  "/assets/assets/glassware-cutout/rocks-glass.ae4c116a56304cb10ca7f420803f95fd.png",
+  "/assets/assets/glassware-cutout/wine-glass.61f3837df32cc7a405e194af6accc1f8.png",
   "/assets/assets/hugo.ec00dfa036b8175a37d72d333761bc10.jpg",
   "/favicon.ico",
   "/index.html",
