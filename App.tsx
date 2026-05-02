@@ -102,7 +102,7 @@ export default function App() {
     allDrinks.find((drink) => drink.id === currentDrinkId) ?? (allDrinks.length ? allDrinks[0] : null);
   const acceptedQuizGlasses = currentDrink ? getAcceptedQuizGlasses(currentDrink.glass) : [];
   const selectedIngredientsSummary = selectedIngredients.join(' • ');
-  const quizLocked = quizStatus.kind !== 'idle';
+  const quizLocked = quizStatus.kind === 'correct' || quizStatus.kind === 'cheat-reveal';
   const canSubmit =
     !!currentDrink &&
     !quizLocked &&
@@ -112,7 +112,7 @@ export default function App() {
     quizStatus.kind === 'correct'
       ? 'Richtig serviert'
       : quizStatus.kind === 'wrong'
-        ? 'Falsch serviert'
+        ? 'Nochmal servieren'
         : quizStatus.kind === 'cheat-reveal'
           ? 'Lösung läuft...'
           : 'Serve It!';
@@ -306,7 +306,7 @@ export default function App() {
     updateTipJar(Math.max(0, tipJar - WRONG_TIP_PENALTY));
     setQuizStatus({
       kind: 'wrong',
-      message: `Nicht korrekt. ${formatEuro(WRONG_TIP_PENALTY)} werden aus dem Trinkgeldglas abgezogen.`,
+      message: `Nicht korrekt. ${formatEuro(WRONG_TIP_PENALTY)} werden aus dem Trinkgeldglas abgezogen. Passe deine Auswahl an und versuche es erneut.`,
     });
   }
 
@@ -798,7 +798,7 @@ export default function App() {
                         quizStatus.kind === 'correct' && styles.serveButtonSuccess,
                         quizStatus.kind === 'wrong' && styles.serveButtonError,
                         quizStatus.kind === 'cheat-reveal' && styles.serveButtonInfo,
-                        !canSubmit && quizStatus.kind === 'idle' && styles.serveButtonDisabled,
+                        !canSubmit && styles.serveButtonDisabled,
                         pressed && canSubmit && styles.serveButtonPressed,
                       ]}
                     >
