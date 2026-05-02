@@ -15,11 +15,11 @@ import { DrinkArtwork } from './src/components/DrinkArtwork';
 import { categoryLabels, drinks, glasswareGuide, lessons } from './src/data/bartending';
 
 export default function App() {
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedCategory, setSelectedCategory] = useState('Alle');
   const [expandedDrinkId, setExpandedDrinkId] = useState<string | null>(drinks[0]?.id ?? null);
 
   const visibleDrinks =
-    selectedCategory === 'All'
+    selectedCategory === 'Alle'
       ? drinks
       : drinks.filter((drink) => drink.category === selectedCategory);
 
@@ -29,34 +29,36 @@ export default function App() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <LinearGradient colors={['#173B38', '#8C4B31']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
           <View style={styles.heroBadge}>
-            <Text style={styles.heroBadgeText}>Beginner bartender trainer</Text>
+            <Text style={styles.heroBadgeText}>Bartraining für Einsteiger</Text>
           </View>
           <Text style={styles.heroTitle}>BarStart DE</Text>
           <Text style={styles.heroSubtitle}>
-            Learn the drinks guests order most often in Germany, with metric recipes, glassware,
-            garnish, and service cues built for iPhone-friendly practice.
+            Lerne die Drinks, die in Deutschland besonders häufig bestellt werden, mit
+            Rezepten in cl, passendem Glas, Garnitur und Service-Hinweisen für das Üben auf
+            dem iPhone.
           </Text>
 
           <View style={styles.heroStats}>
             <View style={styles.heroStatCard}>
               <Text style={styles.heroStatValue}>{drinks.length}</Text>
-              <Text style={styles.heroStatLabel}>Core cocktails</Text>
+              <Text style={styles.heroStatLabel}>Cocktails</Text>
             </View>
             <View style={styles.heroStatCard}>
               <Text style={styles.heroStatValue}>cl</Text>
-              <Text style={styles.heroStatLabel}>Metric recipes</Text>
+              <Text style={styles.heroStatLabel}>Rezepte in cl</Text>
             </View>
             <View style={styles.heroStatCard}>
               <Text style={styles.heroStatValue}>7</Text>
-              <Text style={styles.heroStatLabel}>Glass styles</Text>
+              <Text style={styles.heroStatLabel}>Glasarten</Text>
             </View>
           </View>
         </LinearGradient>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Start Here</Text>
+          <Text style={styles.sectionTitle}>Hier anfangen</Text>
           <Text style={styles.sectionIntro}>
-            These are the habits that will save you from most beginner mistakes behind the bar.
+            Diese Grundregeln bewahren dich vor den häufigsten Fehlern beim Start hinter der
+            Bar.
           </Text>
           <View style={styles.lessonGrid}>
             {lessons.map((lesson) => (
@@ -69,10 +71,10 @@ export default function App() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Glassware Cheat Sheet</Text>
+          <Text style={styles.sectionTitle}>Glaswaren-Spickzettel</Text>
           <Text style={styles.sectionIntro}>
-            When a recipe changes glass, the drink changes with it. Use the intended glass first,
-            then adapt only when service demands it.
+            Wenn sich das Glas ändert, ändert sich auch der Drink. Nutze zuerst das vorgesehene
+            Glas und weiche nur ab, wenn der Service es verlangt.
           </Text>
           <ScrollView
             horizontal
@@ -89,9 +91,10 @@ export default function App() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Cocktail Library</Text>
+          <Text style={styles.sectionTitle}>Cocktail-Bibliothek</Text>
           <Text style={styles.sectionIntro}>
-            Tap a card to open the full recipe, method, serving glass, garnish, and a bar-floor tip.
+            Tippe auf eine Karte, um Rezept, Zubereitung, Glas, Garnitur und einen Praxis-Hinweis
+            zu sehen.
           </Text>
           <ScrollView
             horizontal
@@ -143,12 +146,12 @@ export default function App() {
 
                       <Text style={styles.drinkName}>{drink.name}</Text>
                       <Text style={styles.drinkMeta}>
-                        {drink.category} · Serve in a {drink.glass}
+                        {drink.category} · Glas: {drink.glass}
                       </Text>
                       <Text style={styles.drinkSummary}>{drink.summary}</Text>
 
                       <View style={styles.inlineDetail}>
-                        <Text style={styles.inlineLabel}>Garnish</Text>
+                        <Text style={styles.inlineLabel}>Garnitur</Text>
                         <Text style={styles.inlineValue}>{drink.garnish}</Text>
                       </View>
                     </View>
@@ -157,7 +160,7 @@ export default function App() {
                   {expanded ? (
                     <View style={styles.expandedArea}>
                       <View style={styles.detailBlock}>
-                        <Text style={styles.detailTitle}>Recipe</Text>
+                        <Text style={styles.detailTitle}>Rezept</Text>
                         {drink.ingredients.map((ingredient) => (
                           <View key={`${drink.id}-${ingredient.amount}-${ingredient.item}`} style={styles.detailRow}>
                             <Text style={styles.detailAmount}>{ingredient.amount}</Text>
@@ -167,7 +170,7 @@ export default function App() {
                       </View>
 
                       <View style={styles.detailBlock}>
-                        <Text style={styles.detailTitle}>Method</Text>
+                        <Text style={styles.detailTitle}>Zubereitung</Text>
                         {drink.method.map((step, index) => (
                           <View key={`${drink.id}-step-${index + 1}`} style={styles.methodRow}>
                             <Text style={styles.methodIndex}>{index + 1}</Text>
@@ -177,17 +180,17 @@ export default function App() {
                       </View>
 
                       <View style={styles.tipPanel}>
-                        <Text style={styles.tipTitle}>German bar note</Text>
+                        <Text style={styles.tipTitle}>Barhinweis</Text>
                         <Text style={styles.tipBody}>{drink.germanNote}</Text>
                       </View>
 
                       <View style={styles.tipPanel}>
-                        <Text style={styles.tipTitle}>Beginner focus</Text>
+                        <Text style={styles.tipTitle}>Worauf du achten solltest</Text>
                         <Text style={styles.tipBody}>{drink.proTip}</Text>
                       </View>
                     </View>
                   ) : (
-                    <Text style={styles.tapHint}>Tap for recipe and steps</Text>
+                    <Text style={styles.tapHint}>Tippe für Rezept und Schritte</Text>
                   )}
                 </Pressable>
               );
@@ -196,10 +199,10 @@ export default function App() {
         </View>
 
         <View style={styles.footerCard}>
-          <Text style={styles.footerTitle}>Service reminder</Text>
+          <Text style={styles.footerTitle}>Service-Erinnerung</Text>
           <Text style={styles.footerBody}>
-            Consistency beats speed when you start. Measure every pour, keep glassware cold and
-            clean, and always follow local age and service rules.
+            Konstanz ist am Anfang wichtiger als Tempo. Miss jeden Pour sauber ab, halte die
+            Gläser kalt und sauber und beachte immer die lokalen Alters- und Serviceregeln.
           </Text>
         </View>
       </ScrollView>
