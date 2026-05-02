@@ -41,6 +41,7 @@ const QUIZ_GLASS_OPTIONS = [
 ] as const;
 const CORRECT_TIP_REWARD = 5;
 const WRONG_TIP_PENALTY = 3;
+const CORRECT_REVEAL_MS = 1600;
 const CHEAT_REVEAL_MS = 3000;
 
 type AppView = (typeof APP_VIEWS)[number]['key'];
@@ -101,12 +102,20 @@ export default function App() {
     allDrinks.find((drink) => drink.id === currentDrinkId) ?? (allDrinks.length ? allDrinks[0] : null);
   const acceptedQuizGlasses = currentDrink ? getAcceptedQuizGlasses(currentDrink.glass) : [];
   const selectedIngredientsSummary = selectedIngredients.join(' • ');
-  const quizLocked = quizStatus.kind === 'wrong' || quizStatus.kind === 'cheat-reveal';
+  const quizLocked = quizStatus.kind !== 'idle';
   const canSubmit =
     !!currentDrink &&
     !quizLocked &&
     !!selectedGlass &&
     (selectedIngredients.length > 0 || currentDrink.ingredients.length === 0);
+  const serveButtonLabel =
+    quizStatus.kind === 'correct'
+      ? 'Richtig serviert'
+      : quizStatus.kind === 'wrong'
+        ? 'Falsch serviert'
+        : quizStatus.kind === 'cheat-reveal'
+          ? 'Lösung läuft...'
+          : 'Serve It!';
 
   useEffect(() => {
     if (!allDrinks.length) {
@@ -286,7 +295,11 @@ export default function App() {
         kind: 'correct',
         message: `Perfekt serviert. ${formatEuro(CORRECT_TIP_REWARD)} wandern ins Trinkgeldglas.`,
       });
-      moveToNextDrink(currentDrink.id);
+
+      cheatTimerRef.current = setTimeout(() => {
+        setQuizStatus({ kind: 'idle' });
+        moveToNextDrink(currentDrink.id);
+      }, CORRECT_REVEAL_MS);
       return;
     }
 
@@ -661,61 +674,6 @@ export default function App() {
                     </Text>
                   </View>
 
-                  {quizStatus.kind !== 'idle' ? (
-                    <View
-                      style={[
-                        styles.feedbackCard,
-                        quizStatus.kind === 'correct' && styles.feedbackCardSuccess,
-                        quizStatus.kind === 'wrong' && styles.feedbackCardWarning,
-                        quizStatus.kind === 'cheat-reveal' && styles.feedbackCardInfo,
-                      ]}
-                    >
-                      <Text style={styles.feedbackTitle}>
-                        {quizStatus.kind === 'correct'
-                          ? 'Richtig'
-                          : quizStatus.kind === 'wrong'
-                            ? 'Noch nicht'
-                            : 'Cheat'}
-                      </Text>
-                      <Text style={styles.feedbackBody}>{quizStatus.message}</Text>
-
-                      {quizStatus.kind === 'wrong' ? (
-                        <Pressable
-                          onPress={handleCheat}
-                          style={({ pressed }) => [
-                            styles.cheatButton,
-                            pressed && styles.cheatButtonPressed,
-                          ]}
-                        >
-                          <Text style={styles.cheatButtonText}>Cheat</Text>
-                        </Pressable>
-                      ) : null}
-
-                      {quizStatus.kind === 'cheat-reveal' ? (
-                        <View style={styles.answerReveal}>
-                          <Text style={styles.answerRevealTitle}>Richtiges Glas</Text>
-                          <Text style={styles.answerRevealBody}>
-                            {acceptedQuizGlasses.join(' oder ')}
-                          </Text>
-                          <Text style={styles.answerRevealTitle}>Richtige Zutaten</Text>
-                          <View style={styles.answerRevealList}>
-                            {currentDrink.ingredients.map((ingredient) => (
-                              <View
-                                key={`${currentDrink.id}-answer-${ingredient.amount}-${ingredient.item}`}
-                                style={styles.answerRevealRow}
-                              >
-                                <Text style={styles.answerRevealAmount}>
-                                  {ingredient.amount || '—'}
-                                </Text>
-                                <Text style={styles.answerRevealText}>{ingredient.item}</Text>
-                              </View>
-                            ))}
-                          </View>
-                        </View>
-                      ) : null}
-                    </View>
-                  ) : null}
-
                   <View style={styles.quizCard}>
                     <Text style={styles.quizCardTitle}>1. Das richtige Glas wählen</Text>
                     <ScrollView
@@ -837,12 +795,70 @@ export default function App() {
                       disabled={!canSubmit}
                       style={({ pressed }) => [
                         styles.serveButton,
-                        !canSubmit && styles.serveButtonDisabled,
+                        quizStatus.kind === 'correct' && styles.serveButtonSuccess,
+                        quizStatus.kind === 'wrong' && styles.serveButtonError,
+                        quizStatus.kind === 'cheat-reveal' && styles.serveButtonInfo,
+                        !canSubmit && quizStatus.kind === 'idle' && styles.serveButtonDisabled,
                         pressed && canSubmit && styles.serveButtonPressed,
                       ]}
                     >
-                      <Text style={styles.serveButtonText}>Serve It!</Text>
+                      <Text style={styles.serveButtonText}>{serveButtonLabel}</Text>
                     </Pressable>
+
+                    {quizStatus.kind !== 'idle' ? (
+                      <View
+                        style={[
+                          styles.feedbackCard,
+                          quizStatus.kind === 'correct' && styles.feedbackCardSuccess,
+                          quizStatus.kind === 'wrong' && styles.feedbackCardWarning,
+                          quizStatus.kind === 'cheat-reveal' && styles.feedbackCardInfo,
+                        ]}
+                      >
+                        <Text style={styles.feedbackTitle}>
+                          {quizStatus.kind === 'correct'
+                            ? 'Richtig'
+                            : quizStatus.kind === 'wrong'
+                              ? 'Noch nicht'
+                              : 'Cheat'}
+                        </Text>
+                        <Text style={styles.feedbackBody}>{quizStatus.message}</Text>
+
+                        {quizStatus.kind === 'wrong' ? (
+                          <Pressable
+                            onPress={handleCheat}
+                            style={({ pressed }) => [
+                              styles.cheatButton,
+                              pressed && styles.cheatButtonPressed,
+                            ]}
+                          >
+                            <Text style={styles.cheatButtonText}>Cheat</Text>
+                          </Pressable>
+                        ) : null}
+
+                        {quizStatus.kind === 'cheat-reveal' ? (
+                          <View style={styles.answerReveal}>
+                            <Text style={styles.answerRevealTitle}>Richtiges Glas</Text>
+                            <Text style={styles.answerRevealBody}>
+                              {acceptedQuizGlasses.join(' oder ')}
+                            </Text>
+                            <Text style={styles.answerRevealTitle}>Richtige Zutaten</Text>
+                            <View style={styles.answerRevealList}>
+                              {currentDrink.ingredients.map((ingredient) => (
+                                <View
+                                  key={`${currentDrink.id}-answer-${ingredient.amount}-${ingredient.item}`}
+                                  style={styles.answerRevealRow}
+                                >
+                                  <Text style={styles.answerRevealAmount}>
+                                    {ingredient.amount || '—'}
+                                  </Text>
+                                  <Text style={styles.answerRevealText}>{ingredient.item}</Text>
+                                </View>
+                              ))}
+                            </View>
+                          </View>
+                        ) : null}
+                      </View>
+                    ) : null}
                   </View>
                 </>
               ) : (
@@ -1716,6 +1732,7 @@ const styles = StyleSheet.create({
   },
   quizActionRow: {
     marginTop: 18,
+    gap: 12,
   },
   serveButton: {
     borderRadius: 22,
@@ -1723,6 +1740,15 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
     backgroundColor: '#276C62',
+  },
+  serveButtonSuccess: {
+    backgroundColor: '#2F8B55',
+  },
+  serveButtonError: {
+    backgroundColor: '#8B3E3E',
+  },
+  serveButtonInfo: {
+    backgroundColor: '#355A68',
   },
   serveButtonDisabled: {
     opacity: 0.45,
