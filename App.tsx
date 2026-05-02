@@ -1,27 +1,116 @@
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
+  Image,
   Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
-import { DrinkArtwork } from './src/components/DrinkArtwork';
-import { categoryLabels, drinks, glasswareGuide, lessons } from './src/data/bartending';
+import { DrinkVisual } from './src/components/DrinkVisual';
+import { drinks, glasswareGuide, lessons, type Drink } from './src/data/bartending';
+import {
+  normalizeDrinkKey,
+  searchWebDrinks,
+  type WebDrinkSearchResult,
+  webResultToDrink,
+} from './src/lib/drinkImport';
+import { loadImportedDrinks, saveImportedDrinks } from './src/lib/importedDrinkStorage';
 
 export default function App() {
   const [selectedCategory, setSelectedCategory] = useState('Alle');
   const [expandedDrinkId, setExpandedDrinkId] = useState<string | null>(drinks[0]?.id ?? null);
+  const [importedDrinks, setImportedDrinks] = useState<Drink[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<WebDrinkSearchResult[]>([]);
+  const [searchMessage, setSearchMessage] = useState<string | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
 
+  useEffect(() => {
+    setImportedDrinks(loadImportedDrinks());
+  }, []);
+
+  const allDrinks = [...importedDrinks, ...drinks];
+  const categories = ['Alle', ...new Set(allDrinks.map((drink) => drink.category))];
   const visibleDrinks =
     selectedCategory === 'Alle'
-      ? drinks
-      : drinks.filter((drink) => drink.category === selectedCategory);
+      ? allDrinks
+      : allDrinks.filter((drink) => drink.category === selectedCategory);
+
+  function findExistingDrink(name: string, sourceId?: string) {
+    const normalizedName = normalizeDrinkKey(name);
+
+    return allDrinks.find(
+      (drink) =>
+        (sourceId && drink.sourceId === sourceId) || normalizeDrinkKey(drink.name) === normalizedName
+    );
+  }
+
+  function focusDrink(drink: Drink) {
+    setSelectedCategory('Alle');
+    setExpandedDrinkId(drink.id);
+  }
+
+  async function handleSearch() {
+    const trimmedQuery = searchQuery.trim();
+    if (!trimmedQuery) {
+      setSearchError('Bitte gib einen Drinknamen ein.');
+      setSearchMessage(null);
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    setSearchError(null);
+    setSearchMessage(null);
+
+    try {
+      const results = await searchWebDrinks(trimmedQuery);
+      setSearchResults(results);
+
+      if (!results.length) {
+        setSearchMessage(`Kein Web-Treffer für "${trimmedQuery}" gefunden.`);
+      } else {
+        setSearchMessage(
+          `${results.length} Web-Treffer gefunden. Wähle den passenden Drink zum Import.`
+        );
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Websuche fehlgeschlagen.';
+      setSearchResults([]);
+      setSearchError(message);
+    } finally {
+      setIsSearching(false);
+    }
+  }
+
+  function handleImport(result: WebDrinkSearchResult) {
+    const existingDrink = findExistingDrink(result.name, result.sourceId);
+    if (existingDrink) {
+      focusDrink(existingDrink);
+      setSearchError(null);
+      setSearchMessage(`"${existingDrink.name}" ist bereits in deiner Bibliothek.`);
+      return;
+    }
+
+    const importedDrink = webResultToDrink(result);
+    const nextImportedDrinks = [importedDrink, ...importedDrinks];
+
+    setImportedDrinks(nextImportedDrinks);
+    saveImportedDrinks(nextImportedDrinks);
+    setSelectedCategory('Alle');
+    setExpandedDrinkId(importedDrink.id);
+    setSearchError(null);
+    setSearchMessage(`"${importedDrink.name}" wurde importiert und lokal gespeichert.`);
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -40,7 +129,7 @@ export default function App() {
 
           <View style={styles.heroStats}>
             <View style={styles.heroStatCard}>
-              <Text style={styles.heroStatValue}>{drinks.length}</Text>
+              <Text style={styles.heroStatValue}>{allDrinks.length}</Text>
               <Text style={styles.heroStatLabel}>Cocktails</Text>
             </View>
             <View style={styles.heroStatCard}>
@@ -48,8 +137,8 @@ export default function App() {
               <Text style={styles.heroStatLabel}>Rezepte in cl</Text>
             </View>
             <View style={styles.heroStatCard}>
-              <Text style={styles.heroStatValue}>7</Text>
-              <Text style={styles.heroStatLabel}>Glasarten</Text>
+              <Text style={styles.heroStatValue}>{importedDrinks.length}</Text>
+              <Text style={styles.heroStatLabel}>Web-Importe</Text>
             </View>
           </View>
         </LinearGradient>
@@ -91,6 +180,123 @@ export default function App() {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Drinks aus dem Web importieren</Text>
+          <Text style={styles.sectionIntro}>
+            Fehlt ein Cocktail noch in der App, suche ihn online und importiere Zutaten,
+            Anleitung, Glas und Bild direkt in deine Bibliothek.
+          </Text>
+
+          <View style={styles.searchPanel}>
+            <TextInput
+              value={searchQuery}
+              onChangeText={(value) => {
+                setSearchQuery(value);
+                if (searchError) {
+                  setSearchError(null);
+                }
+              }}
+              onSubmitEditing={() => {
+                void handleSearch();
+              }}
+              placeholder="Zum Beispiel: Paper Plane"
+              placeholderTextColor="#8B6B59"
+              style={styles.searchInput}
+              returnKeyType="search"
+              autoCapitalize="words"
+              autoCorrect={false}
+            />
+
+            <Pressable
+              onPress={() => {
+                void handleSearch();
+              }}
+              disabled={isSearching}
+              style={({ pressed }) => [
+                styles.searchButton,
+                isSearching && styles.searchButtonDisabled,
+                pressed && !isSearching && styles.searchButtonPressed,
+              ]}
+            >
+              <Text style={styles.searchButtonText}>
+                {isSearching ? 'Suche läuft...' : 'Im Web suchen'}
+              </Text>
+            </Pressable>
+
+            <Text style={styles.searchSource}>Quelle: TheCocktailDB</Text>
+
+            {searchError ? <Text style={styles.searchError}>{searchError}</Text> : null}
+            {searchMessage && !searchError ? (
+              <Text style={styles.searchMessage}>{searchMessage}</Text>
+            ) : null}
+            {isSearching ? <ActivityIndicator color="#1E4B45" style={styles.searchSpinner} /> : null}
+
+            {searchResults.length ? (
+              <View style={styles.searchResults}>
+                {searchResults.map((result) => {
+                  const existingDrink = findExistingDrink(result.name, result.sourceId);
+                  const ingredientPreview = result.ingredients
+                    .slice(0, 4)
+                    .map((ingredient) =>
+                      ingredient.amount ? `${ingredient.amount} ${ingredient.item}` : ingredient.item
+                    )
+                    .join(' • ');
+
+                  return (
+                    <View key={result.sourceId} style={styles.searchResultCard}>
+                      {result.imageUrl ? (
+                        <Image source={{ uri: result.imageUrl }} style={styles.searchResultImage} />
+                      ) : (
+                        <View style={styles.searchResultPlaceholder}>
+                          <Text style={styles.searchResultPlaceholderText}>Kein Bild</Text>
+                        </View>
+                      )}
+
+                      <View style={styles.searchResultBody}>
+                        <Text style={styles.searchResultTitle}>{result.name}</Text>
+                        <Text style={styles.searchResultMeta}>
+                          {result.category} · Glas: {result.glass}
+                        </Text>
+                        <Text style={styles.searchResultPreview}>{result.instructions}</Text>
+
+                        <Text style={styles.searchResultLabel}>Zutaten</Text>
+                        <Text style={styles.searchResultIngredients}>
+                          {ingredientPreview || 'Keine Zutaten in der Webquelle gefunden.'}
+                        </Text>
+
+                        <Pressable
+                          onPress={() => {
+                            if (existingDrink) {
+                              focusDrink(existingDrink);
+                              return;
+                            }
+
+                            handleImport(result);
+                          }}
+                          style={({ pressed }) => [
+                            styles.searchActionButton,
+                            existingDrink && styles.searchActionButtonMuted,
+                            pressed && styles.searchActionButtonPressed,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.searchActionButtonText,
+                              existingDrink && styles.searchActionButtonTextMuted,
+                            ]}
+                          >
+                            {existingDrink ? 'Bereits vorhanden öffnen' : 'In Bibliothek importieren'}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : null}
+          </View>
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Cocktail-Bibliothek</Text>
           <Text style={styles.sectionIntro}>
             Tippe auf eine Karte, um Rezept, Zubereitung, Glas, Garnitur und einen Praxis-Hinweis
@@ -101,7 +307,7 @@ export default function App() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.filterRow}
           >
-            {categoryLabels.map((category) => {
+            {categories.map((category) => {
               const active = category === selectedCategory;
 
               return (
@@ -133,7 +339,7 @@ export default function App() {
                   ]}
                 >
                   <View style={styles.drinkCardHeader}>
-                    <DrinkArtwork artwork={drink.artwork} />
+                    <DrinkVisual drink={drink} />
                     <View style={styles.drinkCardBody}>
                       <View style={styles.drinkBadgeRow}>
                         <View style={styles.primaryBadge}>
@@ -142,6 +348,11 @@ export default function App() {
                         <View style={styles.secondaryBadge}>
                           <Text style={styles.secondaryBadgeText}>{drink.difficulty}</Text>
                         </View>
+                        {drink.source === 'web-import' ? (
+                          <View style={styles.sourceBadge}>
+                            <Text style={styles.sourceBadgeText}>Web</Text>
+                          </View>
+                        ) : null}
                       </View>
 
                       <Text style={styles.drinkName}>{drink.name}</Text>
@@ -163,7 +374,7 @@ export default function App() {
                         <Text style={styles.detailTitle}>Rezept</Text>
                         {drink.ingredients.map((ingredient) => (
                           <View key={`${drink.id}-${ingredient.amount}-${ingredient.item}`} style={styles.detailRow}>
-                            <Text style={styles.detailAmount}>{ingredient.amount}</Text>
+                            <Text style={styles.detailAmount}>{ingredient.amount || '—'}</Text>
                             <Text style={styles.detailText}>{ingredient.item}</Text>
                           </View>
                         ))}
@@ -354,6 +565,154 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
   },
+  searchPanel: {
+    marginTop: 16,
+    borderRadius: 24,
+    padding: 18,
+    backgroundColor: '#FFF9F1',
+    borderWidth: 1,
+    borderColor: '#E7D8C5',
+    gap: 12,
+  },
+  searchInput: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#D9C4AA',
+    backgroundColor: '#FFFDF9',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    color: '#2F2019',
+    fontSize: 16,
+  },
+  searchButton: {
+    borderRadius: 18,
+    backgroundColor: '#1E4B45',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  searchButtonDisabled: {
+    opacity: 0.7,
+  },
+  searchButtonPressed: {
+    opacity: 0.92,
+  },
+  searchButtonText: {
+    color: '#FFF6E7',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  searchSource: {
+    color: '#8A654F',
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    fontWeight: '700',
+  },
+  searchError: {
+    color: '#A03E2F',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  searchMessage: {
+    color: '#245B51',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  searchSpinner: {
+    marginTop: 2,
+  },
+  searchResults: {
+    gap: 14,
+    marginTop: 2,
+  },
+  searchResultCard: {
+    borderRadius: 22,
+    padding: 14,
+    backgroundColor: '#FFFCF7',
+    borderWidth: 1,
+    borderColor: '#E8D7C2',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  searchResultImage: {
+    width: 92,
+    height: 92,
+    borderRadius: 20,
+    backgroundColor: '#E7D8C5',
+  },
+  searchResultPlaceholder: {
+    width: 92,
+    height: 92,
+    borderRadius: 20,
+    backgroundColor: '#E9DDCC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchResultPlaceholderText: {
+    color: '#7C5D4B',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  searchResultBody: {
+    flex: 1,
+  },
+  searchResultTitle: {
+    color: '#26150F',
+    fontSize: 20,
+    lineHeight: 24,
+    fontWeight: '700',
+    fontFamily: Platform.select({ ios: 'Georgia', default: undefined }),
+  },
+  searchResultMeta: {
+    color: '#845B49',
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 4,
+  },
+  searchResultPreview: {
+    color: '#563F33',
+    fontSize: 14,
+    lineHeight: 21,
+    marginTop: 10,
+  },
+  searchResultLabel: {
+    color: '#A5653B',
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+    marginTop: 10,
+  },
+  searchResultIngredients: {
+    color: '#4E382E',
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 4,
+  },
+  searchActionButton: {
+    alignSelf: 'flex-start',
+    marginTop: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: '#8A4929',
+  },
+  searchActionButtonMuted: {
+    backgroundColor: '#E7D6C0',
+  },
+  searchActionButtonPressed: {
+    opacity: 0.92,
+  },
+  searchActionButtonText: {
+    color: '#FFF7EE',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  searchActionButtonTextMuted: {
+    color: '#6B4A39',
+  },
   filterRow: {
     paddingTop: 16,
     paddingRight: 18,
@@ -434,6 +793,17 @@ const styles = StyleSheet.create({
   },
   secondaryBadgeText: {
     color: '#73482F',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  sourceBadge: {
+    backgroundColor: '#E7D6BD',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  sourceBadgeText: {
+    color: '#6C432B',
     fontSize: 12,
     fontWeight: '700',
   },

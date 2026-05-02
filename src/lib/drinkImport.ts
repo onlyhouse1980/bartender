@@ -28,6 +28,7 @@ export type WebDrinkSearchResult = {
 };
 
 const SEARCH_API_BASE = 'https://www.thecocktaildb.com/api/json/v1/1/search.php?s=';
+const INGREDIENT_INDEXES: IngredientIndex[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
 
 export async function searchWebDrinks(query: string): Promise<WebDrinkSearchResult[]> {
   const trimmedQuery = query.trim();
@@ -102,9 +103,11 @@ function mapSearchResult(drink: CocktailDbDrink): WebDrinkSearchResult {
 function collectIngredients(drink: CocktailDbDrink) {
   const entries: Array<{ amount: string; item: string }> = [];
 
-  for (let index = 1; index <= 15; index += 1) {
-    const ingredient = cleanText(drink[`strIngredient${index}` as const]);
-    const amount = cleanText(drink[`strMeasure${index}` as const]) ?? '';
+  for (const index of INGREDIENT_INDEXES) {
+    const ingredientKey = `strIngredient${index}` as const;
+    const measureKey = `strMeasure${index}` as const;
+    const ingredient = cleanText(drink[ingredientKey]);
+    const amount = cleanText(drink[measureKey]) ?? '';
     if (!ingredient) {
       continue;
     }
