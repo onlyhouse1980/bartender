@@ -1,7 +1,14 @@
-const CACHE_NAME = 'barstart-de-1777692509239';
+const CACHE_NAME = 'barstart-de-1777713572978';
 const PRECACHE_URLS = [
-  "/_expo/static/js/web/index-3de73bb18fa916cfabc86bee3dfcbdd7.js",
+  "/_expo/static/js/web/index-bf425c97a0287b3b46d39faa17b5f89b.js",
   "/apple-touch-icon.png",
+  "/assets/assets/glassware/coupe-glass.496f3b6c9784e7eec784d8127053a913.png",
+  "/assets/assets/glassware/high-ball.11c55f4313e2e93855613f15aa4a826d.png",
+  "/assets/assets/glassware/hurricane-glass.b8d3b354752cf082c7fc8a5831ccb1eb.png",
+  "/assets/assets/glassware/martini-glass.a3a2928a6b54a1523fc0ef968a029d5c.png",
+  "/assets/assets/glassware/mule-becher.9d01316093975e383c470b41e45b6b81.png",
+  "/assets/assets/glassware/rocks-glass.43aff49386d820d62cd06a9bea627e3a.png",
+  "/assets/assets/glassware/wine-glass.833117dde562323bf45063cf421b8bc5.png",
   "/favicon.ico",
   "/index.html",
   "/logo192.png",
