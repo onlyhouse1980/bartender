@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 
 import { DrinkVisual } from './src/components/DrinkVisual';
-import { drinks, glasswareGuide, lessons, type Drink } from './src/data/bartending';
+import { drinks, glasswareGuide, type Drink } from './src/data/bartending';
 import {
   normalizeDrinkKey,
   searchWebDrinks,
@@ -117,47 +117,8 @@ export default function App() {
       <StatusBar style="light" />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <LinearGradient colors={['#173B38', '#8C4B31']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
-          <View style={styles.heroBadge}>
-            <Text style={styles.heroBadgeText}>Bartraining für Einsteiger</Text>
-          </View>
           <Text style={styles.heroTitle}>BarStart DE</Text>
-          <Text style={styles.heroSubtitle}>
-            Lerne die Drinks, die in Deutschland besonders häufig bestellt werden, mit
-            Rezepten in cl, passendem Glas, Garnitur und Service-Hinweisen für das Üben auf
-            dem iPhone.
-          </Text>
-
-          <View style={styles.heroStats}>
-            <View style={styles.heroStatCard}>
-              <Text style={styles.heroStatValue}>{allDrinks.length}</Text>
-              <Text style={styles.heroStatLabel}>Cocktails</Text>
-            </View>
-            <View style={styles.heroStatCard}>
-              <Text style={styles.heroStatValue}>cl</Text>
-              <Text style={styles.heroStatLabel}>Rezepte in cl</Text>
-            </View>
-            <View style={styles.heroStatCard}>
-              <Text style={styles.heroStatValue}>{importedDrinks.length}</Text>
-              <Text style={styles.heroStatLabel}>Web-Importe</Text>
-            </View>
-          </View>
         </LinearGradient>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Hier anfangen</Text>
-          <Text style={styles.sectionIntro}>
-            Diese Grundregeln bewahren dich vor den häufigsten Fehlern beim Start hinter der
-            Bar.
-          </Text>
-          <View style={styles.lessonGrid}>
-            {lessons.map((lesson) => (
-              <View key={lesson.title} style={styles.lessonCard}>
-                <Text style={styles.lessonTitle}>{lesson.title}</Text>
-                <Text style={styles.lessonBody}>{lesson.body}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Glaswaren-Spickzettel</Text>
