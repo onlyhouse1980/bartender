@@ -51,6 +51,8 @@ type QuizStatus =
   | { kind: 'cheat-reveal'; message: string };
 
 export default function App() {
+  const scrollViewRef = useRef<ScrollView | null>(null);
+  const librarySectionOffsetRef = useRef(0);
   const [activeView, setActiveView] = useState<AppView>('library');
   const [selectedCategory, setSelectedCategory] = useState('Alle');
   const [expandedDrinkId, setExpandedDrinkId] = useState<string | null>(drinks[0]?.id ?? null);
@@ -142,8 +144,15 @@ export default function App() {
 
   function focusDrink(drink: Drink) {
     setActiveView('library');
-    setSelectedCategory('Alle');
+    setSelectedCategory(drink.category);
     setExpandedDrinkId(drink.id);
+
+    requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollTo({
+        y: Math.max(0, librarySectionOffsetRef.current - 12),
+        animated: true,
+      });
+    });
   }
 
   function resetRoundSelections() {
@@ -206,6 +215,15 @@ export default function App() {
     setIsSearching(true);
     setSearchError(null);
     setSearchMessage(null);
+
+    const existingDrink = findExistingDrink(trimmedQuery);
+    if (existingDrink) {
+      focusDrink(existingDrink);
+      setSearchResults([]);
+      setSearchMessage(`"${existingDrink.name}" ist bereits in deiner Bibliothek. Springe dorthin.`);
+      setIsSearching(false);
+      return;
+    }
 
     try {
       const results = await searchWebDrinks(trimmedQuery);
@@ -298,7 +316,11 @@ export default function App() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        ref={scrollViewRef}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         <LinearGradient
           colors={['#173B38', '#8C4B31']}
           start={{ x: 0, y: 0 }}
@@ -475,7 +497,12 @@ export default function App() {
               </View>
             </View>
 
-            <View style={styles.section}>
+            <View
+              style={styles.section}
+              onLayout={(event) => {
+                librarySectionOffsetRef.current = event.nativeEvent.layout.y;
+              }}
+            >
               <Text style={styles.sectionTitle}>Cocktail-Bibliothek</Text>
               <Text style={styles.sectionIntro}>
                 Tippe auf eine Karte, um Rezept, Zubereitung, Glas, Garnitur und einen
