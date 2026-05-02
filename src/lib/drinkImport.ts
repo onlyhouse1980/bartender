@@ -27,7 +27,8 @@ export type WebDrinkSearchResult = {
   raw: CocktailDbDrink;
 };
 
-const SEARCH_API_BASE = 'https://www.thecocktaildb.com/api/json/v1/1/search.php?s=';
+const COCKTAIL_DB_API_KEY = process.env.EXPO_PUBLIC_COCKTAIL_DB_API_KEY ?? '1';
+const SEARCH_API_BASE = `https://www.thecocktaildb.com/api/json/v1/${COCKTAIL_DB_API_KEY}/search.php?s=`;
 const INGREDIENT_INDEXES: IngredientIndex[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
 
 export async function searchWebDrinks(query: string): Promise<WebDrinkSearchResult[]> {
