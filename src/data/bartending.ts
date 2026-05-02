@@ -39,6 +39,9 @@ export type Drink = {
   ingredients: Array<{ amount: string; item: string }>;
   method: string[];
   artwork: DrinkArtworkSpec;
+  imageUrl?: string;
+  sourceId?: string;
+  source?: 'seeded' | 'web-import';
 };
 
 export const lessons = [
