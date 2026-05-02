@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Linking,
   Platform,
   Pressable,
   SafeAreaView,
@@ -339,6 +340,12 @@ export default function App() {
       setQuizStatus({ kind: 'idle' });
       moveToNextDrink(currentDrink.id);
     }, CHEAT_REVEAL_MS);
+  }
+
+  function handleEmailPress() {
+    void Linking.openURL('mailto:onlyhouse@gmail.com').catch(() => {
+      // Ignore missing mail client errors.
+    });
   }
 
   return (
@@ -888,6 +895,48 @@ export default function App() {
             </View>
           </>
         )}
+
+        <View style={styles.legalCard}>
+          <Text style={styles.legalTitle}>Impressum</Text>
+          <Text style={styles.legalIntro}>Angaben gemaess § 5 DDG</Text>
+
+          <View style={styles.legalBlock}>
+            <Text style={styles.legalLabel}>Diensteanbieter</Text>
+            <Text style={styles.legalValue}>Ryan Nyberg</Text>
+          </View>
+
+          <View style={styles.legalBlock}>
+            <Text style={styles.legalLabel}>E-Mail</Text>
+            <Pressable
+              onPress={handleEmailPress}
+              style={({ pressed }) => [styles.legalLinkWrap, pressed && styles.legalLinkPressed]}
+            >
+              <Text style={styles.legalLink}>onlyhouse@gmail.com</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.legalBlock}>
+            <Text style={styles.legalLabel}>Anschrift</Text>
+            <Text style={styles.legalValue}>
+              Leipziger Str. 222{'\n'}
+              01139 Dresden, Germany
+            </Text>
+          </View>
+
+          <View style={styles.legalBlock}>
+            <Text style={styles.legalLabel}>Verantwortlich fuer den Inhalt</Text>
+            <Text style={styles.legalValue}>Ryan Nyberg</Text>
+            <Text style={styles.legalSubtle}>
+              Leipziger Str. 222{'\n'}
+              01139 Dresden, Germany
+            </Text>
+          </View>
+
+          <Text style={styles.legalNotice}>
+            Weitere Pflichtangaben wie Registereintrag, Umsatzsteuer-ID oder berufsrechtliche
+            Angaben sind nur erforderlich, wenn sie auf dein Angebot zutreffen.
+          </Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -1498,6 +1547,65 @@ const styles = StyleSheet.create({
     color: '#C8D3CF',
     fontSize: 15,
     lineHeight: 22,
+  },
+  legalCard: {
+    marginTop: 28,
+    marginHorizontal: 18,
+    borderRadius: 26,
+    padding: 20,
+    backgroundColor: '#0F191D',
+    borderWidth: 1,
+    borderColor: '#23373F',
+    gap: 14,
+  },
+  legalTitle: {
+    color: '#F4EBDE',
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  legalIntro: {
+    color: '#AFC1BC',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  legalBlock: {
+    gap: 4,
+  },
+  legalLabel: {
+    color: '#E0A86E',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  legalValue: {
+    color: '#D5DFDC',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  legalSubtle: {
+    color: '#93A5A1',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  legalLinkWrap: {
+    alignSelf: 'flex-start',
+  },
+  legalLinkPressed: {
+    opacity: 0.82,
+  },
+  legalLink: {
+    color: '#7ACDBE',
+    fontSize: 15,
+    lineHeight: 22,
+    textDecorationLine: 'underline',
+  },
+  legalNotice: {
+    color: '#93A5A1',
+    fontSize: 13,
+    lineHeight: 20,
   },
   tipJarCard: {
     marginTop: 18,

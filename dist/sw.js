@@ -1,6 +1,6 @@
-const CACHE_NAME = 'barstart-de-1777691754074';
+const CACHE_NAME = 'barstart-de-1777692509239';
 const PRECACHE_URLS = [
-  "/_expo/static/js/web/index-e079f2c6306565d933056db5c4580995.js",
+  "/_expo/static/js/web/index-3de73bb18fa916cfabc86bee3dfcbdd7.js",
   "/apple-touch-icon.png",
   "/favicon.ico",
   "/index.html",
