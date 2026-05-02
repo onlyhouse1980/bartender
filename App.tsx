@@ -55,6 +55,7 @@ type QuizStatus =
 export default function App() {
   const scrollViewRef = useRef<ScrollView | null>(null);
   const librarySectionOffsetRef = useRef(0);
+  const quizSectionOffsetRef = useRef(0);
   const [activeView, setActiveView] = useState<AppView>('library');
   const [selectedCategory, setSelectedCategory] = useState('Alle');
   const [expandedDrinkId, setExpandedDrinkId] = useState<string | null>(drinks[0]?.id ?? null);
@@ -171,9 +172,22 @@ export default function App() {
     setIngredientSearchQuery('');
   }
 
-  function moveToNextDrink(excludedId: string | null) {
+  function scrollToQuizTop() {
+    requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollTo({
+        y: Math.max(0, quizSectionOffsetRef.current - 12),
+        animated: true,
+      });
+    });
+  }
+
+  function moveToNextDrink(excludedId: string | null, scrollToTop = false) {
     setCurrentDrinkId(pickRandomDrinkId(allDrinks, excludedId));
     resetRoundSelections();
+
+    if (scrollToTop) {
+      scrollToQuizTop();
+    }
   }
 
   function clearPositiveFeedback() {
@@ -298,7 +312,7 @@ export default function App() {
 
       cheatTimerRef.current = setTimeout(() => {
         setQuizStatus({ kind: 'idle' });
-        moveToNextDrink(currentDrink.id);
+        moveToNextDrink(currentDrink.id, true);
       }, CORRECT_REVEAL_MS);
       return;
     }
@@ -646,7 +660,12 @@ export default function App() {
           </>
         ) : (
           <>
-            <View style={styles.section}>
+            <View
+              style={styles.section}
+              onLayout={(event) => {
+                quizSectionOffsetRef.current = event.nativeEvent.layout.y;
+              }}
+            >
               <Text style={styles.sectionTitle}>Quiz</Text>
               <Text style={styles.sectionIntro}>
                 Baue den angezeigten Drink aus dem Kopf: Glas wählen, Zutaten zusammenstellen und
