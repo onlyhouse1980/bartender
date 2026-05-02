@@ -127,6 +127,7 @@ export const drinks: Drink[] = [
       ice: true,
       straw: true,
     },
+    imageUrl: 'https://www.thecocktaildb.com/images/media/drink/iloasq1587661955.jpg',
   },
   {
     id: 'hugo',
@@ -192,6 +193,7 @@ export const drinks: Drink[] = [
       bubbles: true,
       ice: true,
     },
+    imageUrl: 'https://www.thecocktaildb.com/images/media/drink/qcgz0t1643821443.jpg',
   },
   {
     id: 'moscow-mule',
@@ -224,6 +226,7 @@ export const drinks: Drink[] = [
       bubbles: true,
       ice: true,
     },
+    imageUrl: 'https://www.thecocktaildb.com/images/media/drink/3pylqc1504370988.jpg',
   },
   {
     id: 'mojito',
@@ -258,6 +261,7 @@ export const drinks: Drink[] = [
       ice: true,
       straw: true,
     },
+    imageUrl: 'https://www.thecocktaildb.com/images/media/drink/metwgh1606770327.jpg',
   },
   {
     id: 'caipirinha',
@@ -290,6 +294,7 @@ export const drinks: Drink[] = [
       ice: true,
       straw: true,
     },
+    imageUrl: 'https://www.thecocktaildb.com/images/media/drink/jgvn7p1582484435.jpg',
   },
   {
     id: 'cuba-libre',
@@ -321,6 +326,7 @@ export const drinks: Drink[] = [
       garnish: 'lime',
       ice: true,
     },
+    imageUrl: 'https://www.thecocktaildb.com/images/media/drink/wmkbfj1606853905.jpg',
   },
   {
     id: 'whiskey-sour',
@@ -354,6 +360,7 @@ export const drinks: Drink[] = [
       ice: true,
       foam: true,
     },
+    imageUrl: 'https://www.thecocktaildb.com/images/media/drink/hbkfsh1589574990.jpg',
   },
   {
     id: 'espresso-martini',
@@ -385,6 +392,7 @@ export const drinks: Drink[] = [
       garnish: 'coffee',
       foam: true,
     },
+    imageUrl: 'https://www.thecocktaildb.com/images/media/drink/n0sx531504372951.jpg',
   },
   {
     id: 'margarita',
@@ -415,6 +423,7 @@ export const drinks: Drink[] = [
       garnish: 'lime',
       saltRim: true,
     },
+    imageUrl: 'https://www.thecocktaildb.com/images/media/drink/5noda61589575158.jpg',
   },
   {
     id: 'negroni',
@@ -445,6 +454,7 @@ export const drinks: Drink[] = [
       garnish: 'orange',
       ice: true,
     },
+    imageUrl: 'https://www.thecocktaildb.com/images/media/drink/qgdu971561574065.jpg',
   },
   {
     id: 'cosmopolitan',
@@ -475,6 +485,7 @@ export const drinks: Drink[] = [
       glassStyle: 'martini',
       garnish: 'orange',
     },
+    imageUrl: 'https://www.thecocktaildb.com/images/media/drink/kpsajh1504368362.jpg',
   },
   {
     id: 'paloma',
@@ -507,6 +518,7 @@ export const drinks: Drink[] = [
       bubbles: true,
       ice: true,
     },
+    imageUrl: 'https://www.thecocktaildb.com/images/media/drink/samm5j1513706393.jpg',
   },
   {
     id: 'pina-colada',
@@ -539,6 +551,7 @@ export const drinks: Drink[] = [
       garnish: 'pineapple',
       straw: true,
     },
+    imageUrl: 'https://www.thecocktaildb.com/images/media/drink/upgsue1668419912.jpg',
   },
   {
     id: 'sex-on-the-beach',
@@ -571,6 +584,7 @@ export const drinks: Drink[] = [
       ice: true,
       straw: true,
     },
+    imageUrl: 'https://www.thecocktaildb.com/images/media/drink/fi67641668420787.jpg',
   },
   {
     id: 'white-russian',
@@ -601,6 +615,7 @@ export const drinks: Drink[] = [
       foam: true,
       ice: true,
     },
+    imageUrl: 'https://www.thecocktaildb.com/images/media/drink/vsrupw1472405732.jpg',
   },
   {
     id: 'tequila-sunrise',
@@ -632,6 +647,7 @@ export const drinks: Drink[] = [
       ice: true,
       straw: true,
     },
+    imageUrl: 'https://www.thecocktaildb.com/images/media/drink/quqyqp1480879103.jpg',
   },
   {
     id: 'mai-tai',
@@ -665,6 +681,7 @@ export const drinks: Drink[] = [
       ice: true,
       straw: true,
     },
+    imageUrl: 'https://www.thecocktaildb.com/images/media/drink/twyrrp1439907470.jpg',
   },
   {
     id: 'old-fashioned',
@@ -695,6 +712,7 @@ export const drinks: Drink[] = [
       garnish: 'orange',
       ice: true,
     },
+    imageUrl: 'https://www.thecocktaildb.com/images/media/drink/vrwquq1478252802.jpg',
   },
 ];
 
