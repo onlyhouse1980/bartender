@@ -1,14 +1,15 @@
-const CACHE_NAME = 'barstart-de-1777715448736';
+const CACHE_NAME = 'barstart-de-1777716164875';
 const PRECACHE_URLS = [
-  "/_expo/static/js/web/index-3678e41cece22e9911e257fdb1a9a259.js",
+  "/_expo/static/js/web/index-2de9174cbd072dab3051dcd13c6fb009.js",
   "/apple-touch-icon.png",
   "/assets/assets/glassware-cutout/coupe-glass.3f4d1cc822d5509830ff0c40188205e1.png",
   "/assets/assets/glassware-cutout/high-ball.f540f310bb3fff890f9cd54b6e2822e2.png",
-  "/assets/assets/glassware-cutout/hurricane-glass.8d6fb43fd1cf842cb00a5fea3ff99e77.png",
+  "/assets/assets/glassware-cutout/hurricane-glass.06263eddadc57ef3a24ff28901df3aff.png",
   "/assets/assets/glassware-cutout/martini-glass.bbe01f10ff291a9ae9606b8bdc0610cd.png",
   "/assets/assets/glassware-cutout/mule-becher.69887e576a97b942c0f604cdcac541eb.png",
   "/assets/assets/glassware-cutout/rocks-glass.c836bb495bfd7880f833a3dc636dd4ee.png",
   "/assets/assets/glassware-cutout/wine-glass.85d34ba5c19af046c8d33f29548c6efa.png",
+  "/assets/assets/hugo.ec00dfa036b8175a37d72d333761bc10.jpg",
   "/favicon.ico",
   "/index.html",
   "/logo192.png",
