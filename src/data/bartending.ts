@@ -54,6 +54,7 @@ export type Drink = {
   ingredients: Array<{ amount: string; item: string }>;
   method: string[];
   artwork: DrinkArtworkSpec;
+  imageAsset?: 'hugo';
   imageUrl?: string;
   sourceId?: string;
   source?: 'seeded' | 'web-import';
@@ -184,6 +185,7 @@ export const drinks: Drink[] = [
       ice: true,
       straw: true,
     },
+    imageAsset: 'hugo',
   },
   {
     id: 'gin-tonic',
