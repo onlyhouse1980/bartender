@@ -1,4 +1,4 @@
-import { Image, StyleSheet, type ImageSourcePropType } from 'react-native';
+import { Image, StyleSheet, type ImageResizeMode, type ImageSourcePropType } from 'react-native';
 
 import type { Drink } from '../data/bartending';
 import { DrinkArtwork } from './DrinkArtwork';
@@ -6,13 +6,14 @@ import { DrinkArtwork } from './DrinkArtwork';
 type DrinkVisualProps = {
   drink: Drink;
   size?: number;
+  resizeMode?: ImageResizeMode;
 };
 
 const LOCAL_DRINK_IMAGES: Record<NonNullable<Drink['imageAsset']>, ImageSourcePropType> = {
   hugo: require('../../assets/hugo.jpg'),
 };
 
-export function DrinkVisual({ drink, size = 124 }: DrinkVisualProps) {
+export function DrinkVisual({ drink, size = 124, resizeMode = 'cover' }: DrinkVisualProps) {
   if (drink.imageAsset) {
     return (
       <Image
@@ -25,6 +26,7 @@ export function DrinkVisual({ drink, size = 124 }: DrinkVisualProps) {
             borderRadius: Math.round(size * 0.23),
           },
         ]}
+        resizeMode={resizeMode}
       />
     );
   }
@@ -41,6 +43,7 @@ export function DrinkVisual({ drink, size = 124 }: DrinkVisualProps) {
             borderRadius: Math.round(size * 0.23),
           },
         ]}
+        resizeMode={resizeMode}
       />
     );
   }
