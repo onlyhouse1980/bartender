@@ -40,6 +40,12 @@ export type GlasswareGuideItem = {
   use: string;
 };
 
+export type BarBasicsModule = {
+  title: string;
+  summary: string;
+  checklist: string[];
+};
+
 export type Drink = {
   id: string;
   name: string;
@@ -55,6 +61,7 @@ export type Drink = {
   method: string[];
   artwork: DrinkArtworkSpec;
   imageAsset?: 'hugo';
+  cachedImageDataUrl?: string;
   imageUrl?: string;
   sourceId?: string;
   source?: 'seeded' | 'web-import';
@@ -78,6 +85,45 @@ export const lessons = [
     body: 'Prüfe im Zweifel das Alter, biete zu starken Drinks Wasser an und halte deine Station ordentlich. Tempo hilft, aber Sicherheit und Klarheit sind wichtiger.',
   },
 ] as const;
+
+export const barBasicsModules: ReadonlyArray<BarBasicsModule> = [
+  {
+    title: 'Werkzeuge am Platz',
+    summary: 'Eine ruhige Station spart Zeit. Wenn Jigger, Barlöffel, Shaker und Strainer immer gleich liegen, baust du auch in Stress sauber.',
+    checklist: [
+      'Jigger mit 2/4 cl oder 2,5/5 cl griffbereit halten',
+      'Shaker und Barsieb direkt neben Eis und Säften platzieren',
+      'Barlöffel, Messer und Servietten vor dem Service auffüllen',
+    ],
+  },
+  {
+    title: 'Eis und Temperatur',
+    summary: 'Der gleiche Drink schmeckt komplett anders, wenn Eis bricht oder das Glas warm ist. Kälte ist ein Teil des Rezepts.',
+    checklist: [
+      'Servierglas zuerst vorkühlen oder direkt mit frischem Eis füllen',
+      'Crushed Ice, Würfeleis und große Blöcke bewusst unterscheiden',
+      'Niemals altes Schmelzwasser aus dem Service weiterverwenden',
+    ],
+  },
+  {
+    title: 'Sauberer Service',
+    summary: 'Gäste sehen zuerst Optik und Haltung. Ein abgewischter Glasrand und eine klare Ansage wirken sofort professionell.',
+    checklist: [
+      'Glasrand, Fuß und Außenfläche vor dem Servieren prüfen',
+      'Garnitur frisch schneiden und nicht gequetscht einsetzen',
+      'Bei starken Drinks aktiv Wasser oder eine Begleitung anbieten',
+    ],
+  },
+  {
+    title: 'Tempo ohne Schlamperei',
+    summary: 'Schnelligkeit hilft nur, wenn der Drink am Ende noch stimmt. Baue lieber konstant als hektisch.',
+    checklist: [
+      'Spirituosen vor dem Build bereitstellen und Reihenfolge im Kopf haben',
+      'Soda und Schaumwein immer zuletzt zugeben',
+      'Vor dem Abschicken kurz Blick auf Glas, Garnitur und Eisniveau werfen',
+    ],
+  },
+];
 
 export const glasswareGuide: ReadonlyArray<GlasswareGuideItem> = [
   {

@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -25,23 +25,37 @@ import {
 import { DrinkVisual } from './src/components/DrinkVisual';
 import { GlasswareVisual } from './src/components/GlasswareVisual';
 import {
+  barBasicsModules,
   drinks,
   glasswareGuide,
+  lessons,
   type Drink,
   type GlasswareIllustration,
 } from './src/data/bartending';
-import {
-  normalizeDrinkKey,
-  searchWebDrinks,
-  type WebDrinkSearchResult,
-  webResultToDrink,
-} from './src/lib/drinkImport';
+import { cacheRemoteImageAsDataUrl } from './src/lib/imageCache';
+import { normalizeDrinkKey, searchWebDrinks, type WebDrinkSearchResult, webResultToDrink } from './src/lib/drinkImport';
 import { loadImportedDrinks, saveImportedDrinks } from './src/lib/importedDrinkStorage';
+import {
+  createEmptyQuizProgress,
+  loadQuizProgress,
+  saveQuizProgress,
+  type QuizDrinkProgress,
+  type QuizProgress,
+} from './src/lib/quizProgressStorage';
 import { loadTipJar, saveTipJar } from './src/lib/tipJarStorage';
 
 const APP_VIEWS = [
   { key: 'library', label: 'Bibliothek' },
+  { key: 'basics', label: 'Bar Basics' },
   { key: 'quiz', label: 'Quiz' },
+] as const;
+const QUIZ_MODES = [
+  { key: 'beginner', label: 'Einsteiger' },
+  { key: 'service', label: 'Service' },
+] as const;
+const QUIZ_POOLS = [
+  { key: 'all', label: 'Alle Drinks' },
+  { key: 'mistakes', label: 'Nur Fehler' },
 ] as const;
 const QUIZ_GLASS_OPTIONS = [
   'Coupe',
@@ -58,11 +72,14 @@ const CORRECT_REVEAL_MS = 1600;
 const CHEAT_REVEAL_MS = 3000;
 
 type AppView = (typeof APP_VIEWS)[number]['key'];
+type LegalPage = 'impressum' | 'privacy';
+type QuizMode = (typeof QUIZ_MODES)[number]['key'];
+type QuizPool = (typeof QUIZ_POOLS)[number]['key'];
 type QuizGlassOption = (typeof QUIZ_GLASS_OPTIONS)[number];
 type QuizStatus =
   | { kind: 'idle' }
   | { kind: 'correct'; message: string }
-  | { kind: 'wrong'; message: string }
+  | { kind: 'wrong'; message: string; details: string[] }
   | { kind: 'cheat-reveal'; message: string };
 type ImagePreview =
   | { kind: 'drink'; drink: Drink; title: string }
@@ -115,25 +132,45 @@ function ImagePreviewTrigger({
   );
 }
 
+function StatTile({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.statTile}>
+      <Text style={styles.statTileLabel}>{label}</Text>
+      <Text style={styles.statTileValue}>{value}</Text>
+    </View>
+  );
+}
+
 export default function App() {
   const scrollViewRef = useRef<ScrollView | null>(null);
   const librarySectionOffsetRef = useRef(0);
   const quizSectionOffsetRef = useRef(0);
   const previewAnimation = useRef(new Animated.Value(0)).current;
+  const quizPoolDrinksRef = useRef<Drink[]>([]);
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
+
   const [activeView, setActiveView] = useState<AppView>('library');
   const [selectedCategory, setSelectedCategory] = useState('Alle');
   const [expandedDrinkId, setExpandedDrinkId] = useState<string | null>(drinks[0]?.id ?? null);
+  const [librarySearchQuery, setLibrarySearchQuery] = useState('');
+  const [activeLegalPage, setActiveLegalPage] = useState<LegalPage | null>(null);
   const [importedDrinks, setImportedDrinks] = useState<Drink[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<WebDrinkSearchResult[]>([]);
   const [searchMessage, setSearchMessage] = useState<string | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [importingDrinkId, setImportingDrinkId] = useState<string | null>(null);
   const [tipJar, setTipJar] = useState(0);
+  const [quizProgress, setQuizProgress] = useState<QuizProgress>(createEmptyQuizProgress());
+  const [quizMode, setQuizMode] = useState<QuizMode>('beginner');
+  const [quizPool, setQuizPool] = useState<QuizPool>('all');
   const [currentDrinkId, setCurrentDrinkId] = useState<string | null>(null);
   const [selectedGlass, setSelectedGlass] = useState<QuizGlassOption | null>(null);
   const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
+  const [selectedGarnish, setSelectedGarnish] = useState<string | null>(null);
+  const [selectedBuildSteps, setSelectedBuildSteps] = useState<string[]>([]);
+  const [buildStepOptions, setBuildStepOptions] = useState<string[]>([]);
   const [ingredientSearchQuery, setIngredientSearchQuery] = useState('');
   const [quizStatus, setQuizStatus] = useState<QuizStatus>({ kind: 'idle' });
   const [isImagePreviewVisible, setIsImagePreviewVisible] = useState(false);
@@ -144,6 +181,7 @@ export default function App() {
   useEffect(() => {
     setImportedDrinks(loadImportedDrinks());
     setTipJar(loadTipJar());
+    setQuizProgress(loadQuizProgress());
   }, []);
 
   useEffect(() => {
@@ -154,11 +192,34 @@ export default function App() {
 
   const allDrinks = [...importedDrinks, ...drinks];
   const categories = ['Alle', ...new Set(allDrinks.map((drink) => drink.category))];
-  const visibleDrinks =
-    selectedCategory === 'Alle'
-      ? allDrinks
-      : allDrinks.filter((drink) => drink.category === selectedCategory);
-  const ingredientBank = buildIngredientBank(allDrinks);
+  const normalizedLibraryQuery = normalizeQuizLabel(librarySearchQuery);
+  const visibleDrinks = allDrinks.filter((drink) => {
+    const categoryMatches = selectedCategory === 'Alle' || drink.category === selectedCategory;
+    const searchMatches = !normalizedLibraryQuery || matchesLibraryQuery(drink, normalizedLibraryQuery);
+    return categoryMatches && searchMatches;
+  });
+
+  const unresolvedMistakeDrinks = useMemo(
+    () =>
+      allDrinks
+        .map((drink) => ({
+          drink,
+          stats: getDrinkProgress(quizProgress, drink.id),
+        }))
+        .filter(({ stats }) => hasOpenMistake(stats))
+        .sort((left, right) => {
+          const leftGap = left.stats.wrong - left.stats.correct;
+          const rightGap = right.stats.wrong - right.stats.correct;
+          return rightGap - leftGap;
+        }),
+    [allDrinks, quizProgress]
+  );
+  const quizPoolDrinks =
+    quizPool === 'mistakes' ? unresolvedMistakeDrinks.map((entry) => entry.drink) : allDrinks;
+  quizPoolDrinksRef.current = quizPoolDrinks;
+
+  const ingredientBank = buildIngredientBank(allDrinks, quizMode);
+  const garnishBank = buildGarnishBank(allDrinks);
   const normalizedIngredientQuery = normalizeQuizLabel(ingredientSearchQuery);
   const filteredIngredientBank = ingredientBank.filter((ingredient) => {
     if (!normalizedIngredientQuery) {
@@ -167,16 +228,23 @@ export default function App() {
 
     return normalizeQuizLabel(ingredient).includes(normalizedIngredientQuery);
   });
+
   const currentDrink =
-    allDrinks.find((drink) => drink.id === currentDrinkId) ?? (allDrinks.length ? allDrinks[0] : null);
+    quizPoolDrinks.find((drink) => drink.id === currentDrinkId) ??
+    (quizPoolDrinks.length ? quizPoolDrinks[0] : null);
   const acceptedQuizGlasses = currentDrink ? getAcceptedQuizGlasses(currentDrink.glass) : [];
+  const expectedIngredientLabels = currentDrink ? getExpectedIngredientLabels(currentDrink, quizMode) : [];
   const selectedIngredientsSummary = selectedIngredients.join(' • ');
   const quizLocked = quizStatus.kind === 'correct' || quizStatus.kind === 'cheat-reveal';
+  const serviceMode = quizMode === 'service';
+  const hasIngredientSelection =
+    expectedIngredientLabels.length === 0 ? true : selectedIngredients.length > 0;
   const canSubmit =
     !!currentDrink &&
     !quizLocked &&
     !!selectedGlass &&
-    (selectedIngredients.length > 0 || currentDrink.ingredients.length === 0);
+    hasIngredientSelection &&
+    (!serviceMode || (!!selectedGarnish && selectedBuildSteps.length > 0));
   const previewVisualSize = Math.min(viewportWidth - 28, viewportHeight - 220, 680);
   const previewTargetFrame = {
     x: (viewportWidth - previewVisualSize) / 2,
@@ -193,14 +261,18 @@ export default function App() {
   const previewTranslateX = previewAnimation.interpolate({
     inputRange: [0, 1],
     outputRange: [
-      previewSourceFrame.x + previewSourceFrame.width / 2 - (previewTargetFrame.x + previewTargetFrame.width / 2),
+      previewSourceFrame.x +
+        previewSourceFrame.width / 2 -
+        (previewTargetFrame.x + previewTargetFrame.width / 2),
       0,
     ],
   });
   const previewTranslateY = previewAnimation.interpolate({
     inputRange: [0, 1],
     outputRange: [
-      previewSourceFrame.y + previewSourceFrame.height / 2 - (previewTargetFrame.y + previewTargetFrame.height / 2),
+      previewSourceFrame.y +
+        previewSourceFrame.height / 2 -
+        (previewTargetFrame.y + previewTargetFrame.height / 2),
       0,
     ],
   });
@@ -234,18 +306,30 @@ export default function App() {
           : 'Serve It!';
 
   useEffect(() => {
-    if (!allDrinks.length) {
+    if (!quizPoolDrinks.length) {
       setCurrentDrinkId(null);
       return;
     }
 
-    const hasCurrentDrink =
-      typeof currentDrinkId === 'string' && allDrinks.some((drink) => drink.id === currentDrinkId);
-
-    if (!hasCurrentDrink) {
-      setCurrentDrinkId(pickRandomDrinkId(allDrinks, null));
+    if (!currentDrinkId || !quizPoolDrinks.some((drink) => drink.id === currentDrinkId)) {
+      setCurrentDrinkId(pickRandomDrinkId(quizPoolDrinks, null));
     }
-  }, [allDrinks, currentDrinkId]);
+  }, [currentDrinkId, quizPoolDrinks]);
+
+  useEffect(() => {
+    if (!currentDrink) {
+      setBuildStepOptions([]);
+      return;
+    }
+
+    setBuildStepOptions(shuffleArray(currentDrink.method));
+  }, [currentDrink?.id]);
+
+  useEffect(() => {
+    clearCheatTimer();
+    setQuizStatus({ kind: 'idle' });
+    resetRoundSelections();
+  }, [quizMode, quizPool]);
 
   function clearCheatTimer() {
     if (cheatTimerRef.current) {
@@ -254,9 +338,14 @@ export default function App() {
     }
   }
 
-  function updateTipJar(nextAmount: number) {
+  function persistTipJar(nextAmount: number) {
     setTipJar(nextAmount);
     saveTipJar(nextAmount);
+  }
+
+  function persistQuizProgress(nextProgress: QuizProgress) {
+    setQuizProgress(nextProgress);
+    saveQuizProgress(nextProgress);
   }
 
   function findExistingDrink(name: string, sourceId?: string) {
@@ -270,6 +359,7 @@ export default function App() {
 
   function focusDrink(drink: Drink) {
     setActiveView('library');
+    setLibrarySearchQuery('');
     setSelectedCategory(drink.category);
     setExpandedDrinkId(drink.id);
 
@@ -284,6 +374,8 @@ export default function App() {
   function resetRoundSelections() {
     setSelectedGlass(null);
     setSelectedIngredients([]);
+    setSelectedGarnish(null);
+    setSelectedBuildSteps([]);
     setIngredientSearchQuery('');
   }
 
@@ -297,7 +389,8 @@ export default function App() {
   }
 
   function moveToNextDrink(excludedId: string | null, scrollToTop = false) {
-    setCurrentDrinkId(pickRandomDrinkId(allDrinks, excludedId));
+    const activePool = quizPoolDrinksRef.current;
+    setCurrentDrinkId(pickRandomDrinkId(activePool, excludedId));
     resetRoundSelections();
 
     if (scrollToTop) {
@@ -331,6 +424,26 @@ export default function App() {
 
     clearPositiveFeedback();
     setSelectedGlass(option);
+  }
+
+  function chooseGarnish(garnish: string) {
+    if (quizLocked) {
+      return;
+    }
+
+    clearPositiveFeedback();
+    setSelectedGarnish((current) => (current === garnish ? null : garnish));
+  }
+
+  function toggleBuildStep(step: string) {
+    if (quizLocked) {
+      return;
+    }
+
+    clearPositiveFeedback();
+    setSelectedBuildSteps((current) =>
+      current.includes(step) ? current.filter((entry) => entry !== step) : [...current, step]
+    );
   }
 
   function handleIngredientSearchChange(value: string) {
@@ -372,7 +485,7 @@ export default function App() {
         setSearchMessage(`Kein Web-Treffer für "${trimmedQuery}" gefunden.`);
       } else {
         setSearchMessage(
-          `${results.length} Web-Treffer gefunden. Wähle den passenden Drink zum Import.`
+          `${results.length} Web-Treffer gefunden. Importierte Drinks und Bilder werden lokal gespeichert.`
         );
       }
     } catch (error) {
@@ -384,7 +497,7 @@ export default function App() {
     }
   }
 
-  function handleImport(result: WebDrinkSearchResult) {
+  async function handleImport(result: WebDrinkSearchResult) {
     const existingDrink = findExistingDrink(result.name, result.sourceId);
     if (existingDrink) {
       focusDrink(existingDrink);
@@ -393,16 +506,28 @@ export default function App() {
       return;
     }
 
-    const importedDrink = webResultToDrink(result);
-    const nextImportedDrinks = [importedDrink, ...importedDrinks];
+    setImportingDrinkId(result.sourceId);
 
-    setImportedDrinks(nextImportedDrinks);
-    saveImportedDrinks(nextImportedDrinks);
-    setActiveView('library');
-    setSelectedCategory('Alle');
-    setExpandedDrinkId(importedDrink.id);
-    setSearchError(null);
-    setSearchMessage(`"${importedDrink.name}" wurde importiert und lokal gespeichert.`);
+    try {
+      const cachedImageDataUrl = result.imageUrl
+        ? await cacheRemoteImageAsDataUrl(result.imageUrl)
+        : undefined;
+      const importedDrink = webResultToDrink(result, { cachedImageDataUrl });
+      const nextImportedDrinks = [importedDrink, ...importedDrinks];
+
+      setImportedDrinks(nextImportedDrinks);
+      saveImportedDrinks(nextImportedDrinks);
+      setActiveView('library');
+      setLibrarySearchQuery('');
+      setSelectedCategory('Alle');
+      setExpandedDrinkId(importedDrink.id);
+      setSearchError(null);
+      setSearchMessage(
+        `"${importedDrink.name}" wurde importiert, lokal gespeichert und ist offline weiter nutzbar.`
+      );
+    } finally {
+      setImportingDrinkId(null);
+    }
   }
 
   function handleServeIt() {
@@ -413,16 +538,27 @@ export default function App() {
     clearCheatTimer();
 
     const isGlassCorrect = acceptedQuizGlasses.includes(selectedGlass);
-    const isIngredientCorrect = ingredientListsMatch(
-      currentDrink.ingredients.map((ingredient) => ingredient.item),
-      selectedIngredients
-    );
+    const isIngredientCorrect = ingredientListsMatch(expectedIngredientLabels, selectedIngredients);
+    const isGarnishCorrect = serviceMode
+      ? normalizeQuizLabel(currentDrink.garnish) === normalizeQuizLabel(selectedGarnish ?? '')
+      : true;
+    const isBuildOrderCorrect = serviceMode
+      ? stepListsMatch(currentDrink.method, selectedBuildSteps)
+      : true;
+    const isCorrect =
+      isGlassCorrect && isIngredientCorrect && isGarnishCorrect && isBuildOrderCorrect;
+    const nextProgress = recordQuizAttempt(quizProgress, currentDrink.id, isCorrect);
 
-    if (isGlassCorrect && isIngredientCorrect) {
-      updateTipJar(tipJar + CORRECT_TIP_REWARD);
+    persistQuizProgress(nextProgress);
+
+    if (isCorrect) {
+      persistTipJar(tipJar + CORRECT_TIP_REWARD);
       setQuizStatus({
         kind: 'correct',
-        message: `Perfekt serviert. ${formatEuro(CORRECT_TIP_REWARD)} wandern ins Trinkgeldglas.`,
+        message:
+          quizMode === 'service'
+            ? `Sauberer Service-Run. ${formatEuro(CORRECT_TIP_REWARD)} wandern ins Trinkgeldglas.`
+            : `Perfekt serviert. ${formatEuro(CORRECT_TIP_REWARD)} wandern ins Trinkgeldglas.`,
       });
 
       cheatTimerRef.current = setTimeout(() => {
@@ -432,10 +568,29 @@ export default function App() {
       return;
     }
 
-    updateTipJar(Math.max(0, tipJar - WRONG_TIP_PENALTY));
+    const details: string[] = [];
+    if (!isGlassCorrect) {
+      details.push('Das Glas stimmt noch nicht.');
+    }
+    if (!isIngredientCorrect) {
+      details.push(
+        serviceMode
+          ? 'Rezept oder Mengen stimmen noch nicht exakt.'
+          : 'Die Zutatenauswahl stimmt noch nicht.'
+      );
+    }
+    if (serviceMode && !isGarnishCorrect) {
+      details.push('Die Garnitur passt noch nicht.');
+    }
+    if (serviceMode && !isBuildOrderCorrect) {
+      details.push('Die Reihenfolge der Arbeitsschritte ist noch nicht korrekt.');
+    }
+
+    persistTipJar(Math.max(0, tipJar - WRONG_TIP_PENALTY));
     setQuizStatus({
       kind: 'wrong',
       message: `Nicht korrekt. ${formatEuro(WRONG_TIP_PENALTY)} werden aus dem Trinkgeldglas abgezogen. Passe deine Auswahl an und versuche es erneut.`,
+      details,
     });
   }
 
@@ -460,6 +615,14 @@ export default function App() {
     void Linking.openURL('mailto:onlyhouse@gmail.com').catch(() => {
       // Ignore missing mail client errors.
     });
+  }
+
+  function openLegalPage(page: LegalPage) {
+    setActiveLegalPage(page);
+  }
+
+  function closeLegalPage() {
+    setActiveLegalPage(null);
   }
 
   function animateImagePreview(toValue: 0 | 1, onComplete?: () => void) {
@@ -551,6 +714,9 @@ export default function App() {
           style={styles.hero}
         >
           <Text style={styles.heroTitle}>BarStart DE</Text>
+          <Text style={styles.heroSubtitle}>
+            Drinks trainieren, Service festigen und Rezepte auch im Bar-Alltag schnell finden.
+          </Text>
         </LinearGradient>
 
         <View style={styles.viewSwitch}>
@@ -560,7 +726,10 @@ export default function App() {
             return (
               <Pressable
                 key={view.key}
-                onPress={() => setActiveView(view.key)}
+                onPress={() => {
+                  setActiveLegalPage(null);
+                  setActiveView(view.key);
+                }}
                 style={({ pressed }) => [
                   styles.viewSwitchChip,
                   active && styles.viewSwitchChipActive,
@@ -575,13 +744,109 @@ export default function App() {
           })}
         </View>
 
-        {activeView === 'library' ? (
+        {activeLegalPage ? (
+          <View style={styles.section}>
+            <View style={styles.legalPageHeader}>
+              <Pressable
+                onPress={closeLegalPage}
+                style={({ pressed }) => [
+                  styles.legalBackButton,
+                  pressed && styles.legalBackButtonPressed,
+                ]}
+              >
+                <Text style={styles.legalBackButtonText}>Zurück</Text>
+              </Pressable>
+              <Text style={styles.legalPageKicker}>Rechtliches</Text>
+            </View>
+
+            {activeLegalPage === 'impressum' ? (
+              <View style={styles.legalCard}>
+                <Text style={styles.legalTitle}>Impressum</Text>
+                <Text style={styles.legalIntro}>Angaben gemaess § 5 DDG</Text>
+
+                <View style={styles.legalBlock}>
+                  <Text style={styles.legalLabel}>Diensteanbieter</Text>
+                  <Text style={styles.legalValue}>Ryan Nyberg</Text>
+                </View>
+
+                <View style={styles.legalBlock}>
+                  <Text style={styles.legalLabel}>E-Mail</Text>
+                  <Pressable
+                    onPress={handleEmailPress}
+                    style={({ pressed }) => [styles.legalLinkWrap, pressed && styles.legalLinkPressed]}
+                  >
+                    <Text style={styles.legalLink}>onlyhouse@gmail.com</Text>
+                  </Pressable>
+                </View>
+
+                <View style={styles.legalBlock}>
+                  <Text style={styles.legalLabel}>Anschrift</Text>
+                  <Text style={styles.legalValue}>
+                    Leipziger Str. 222{'\n'}
+                    01139 Dresden, Germany
+                  </Text>
+                </View>
+
+                <View style={styles.legalBlock}>
+                  <Text style={styles.legalLabel}>Verantwortlich fuer den Inhalt</Text>
+                  <Text style={styles.legalValue}>Ryan Nyberg</Text>
+                  <Text style={styles.legalSubtle}>
+                    Leipziger Str. 222{'\n'}
+                    01139 Dresden, Germany
+                  </Text>
+                </View>
+
+                <Text style={styles.legalNotice}>
+                  Weitere Pflichtangaben wie Registereintrag, Umsatzsteuer-ID oder berufsrechtliche
+                  Angaben sind nur erforderlich, wenn sie auf dein Angebot zutreffen.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.legalCard}>
+                <Text style={styles.legalTitle}>Datenschutz</Text>
+                <Text style={styles.legalIntro}>Kurzfassung fuer diese App</Text>
+
+                <View style={styles.legalBlock}>
+                  <Text style={styles.legalLabel}>Lokale Speicherung</Text>
+                  <Text style={styles.legalValue}>
+                    Importierte Drinks, lokal zwischengespeicherte Bilder, dein Quizfortschritt und
+                    das Trinkgeldglas werden nur auf diesem Geraet im Browser gespeichert.
+                  </Text>
+                </View>
+
+                <View style={styles.legalBlock}>
+                  <Text style={styles.legalLabel}>Websuche</Text>
+                  <Text style={styles.legalValue}>
+                    Wenn du nach einem Drink suchst, wird dein Suchbegriff an TheCocktailDB gesendet.
+                    Dabei koennen Rezeptdaten und Vorschaubilder von dort geladen werden.
+                  </Text>
+                </View>
+
+                <View style={styles.legalBlock}>
+                  <Text style={styles.legalLabel}>Offline-Nutzung</Text>
+                  <Text style={styles.legalValue}>
+                    Bereits exportierte App-Dateien, importierte Rezepte und viele bereits geladene
+                    Bilder werden fuer eine spaetere Offline-Nutzung im Browsercache gespeichert.
+                  </Text>
+                </View>
+
+                <View style={styles.legalBlock}>
+                  <Text style={styles.legalLabel}>Kontakt</Text>
+                  <Text style={styles.legalValue}>
+                    Wenn du per E-Mail Kontakt aufnimmst, sendest du deine Angaben freiwillig an die
+                    im Impressum genannte Adresse.
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+        ) : activeView === 'library' ? (
           <>
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Glaswaren-Spickzettel</Text>
               <Text style={styles.sectionIntro}>
-                Wenn sich das Glas ändert, ändert sich auch der Drink. Nutze zuerst das vorgesehene
-                Glas und weiche nur ab, wenn der Service es verlangt.
+                Wenn sich das Glas ändert, ändert sich auch der Drink. Tippe auf ein Bild, um es
+                groß zu sehen.
               </Text>
               <ScrollView
                 horizontal
@@ -650,7 +915,9 @@ export default function App() {
                   </Text>
                 </Pressable>
 
-                <Text style={styles.searchSource}>Quelle: TheCocktailDB</Text>
+                <Text style={styles.searchSource}>
+                  Quelle: TheCocktailDB · Bilder und importierte Rezepte werden lokal gecached
+                </Text>
 
                 {searchError ? <Text style={styles.searchError}>{searchError}</Text> : null}
                 {searchMessage && !searchError ? (
@@ -672,6 +939,7 @@ export default function App() {
                             : ingredient.item
                         )
                         .join(' • ');
+                      const isImporting = importingDrinkId === result.sourceId;
 
                       return (
                         <View key={result.sourceId} style={styles.searchResultCard}>
@@ -710,12 +978,14 @@ export default function App() {
                                   return;
                                 }
 
-                                handleImport(result);
+                                void handleImport(result);
                               }}
+                              disabled={isImporting}
                               style={({ pressed }) => [
                                 styles.searchActionButton,
                                 existingDrink && styles.searchActionButtonMuted,
-                                pressed && styles.searchActionButtonPressed,
+                                isImporting && styles.searchActionButtonDisabled,
+                                pressed && !isImporting && styles.searchActionButtonPressed,
                               ]}
                             >
                               <Text
@@ -726,7 +996,9 @@ export default function App() {
                               >
                                 {existingDrink
                                   ? 'Bereits vorhanden öffnen'
-                                  : 'In Bibliothek importieren'}
+                                  : isImporting
+                                    ? 'Wird gespeichert...'
+                                    : 'In Bibliothek importieren'}
                               </Text>
                             </Pressable>
                           </View>
@@ -746,9 +1018,26 @@ export default function App() {
             >
               <Text style={styles.sectionTitle}>Cocktail-Bibliothek</Text>
               <Text style={styles.sectionIntro}>
-                Tippe auf eine Karte, um Rezept, Zubereitung, Glas, Garnitur und einen
-                Praxis-Hinweis zu sehen.
+                Suche nach Drinknamen, Zutaten, Spirituosen oder Glasarten und tippe auf eine Karte
+                für Rezept, Zubereitung und Servicehinweise.
               </Text>
+
+              <View style={styles.searchPanel}>
+                <TextInput
+                  value={librarySearchQuery}
+                  onChangeText={setLibrarySearchQuery}
+                  placeholder="Bibliothek durchsuchen: Name, Zutat, Spirituose, Glas"
+                  placeholderTextColor="#7F9590"
+                  style={styles.searchInput}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  keyboardAppearance="dark"
+                />
+                <Text style={styles.searchMessage}>
+                  {visibleDrinks.length} Treffer{normalizedLibraryQuery ? ' für deine Suche' : ''}.
+                </Text>
+              </View>
+
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -761,7 +1050,11 @@ export default function App() {
                     <Pressable
                       key={category}
                       onPress={() => setSelectedCategory(category)}
-                      style={[styles.filterChip, active && styles.filterChipActive]}
+                      style={({ pressed }) => [
+                        styles.filterChip,
+                        active && styles.filterChipActive,
+                        pressed && styles.filterChipPressed,
+                      ]}
                     >
                       <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
                         {category}
@@ -772,97 +1065,107 @@ export default function App() {
               </ScrollView>
 
               <View style={styles.drinkList}>
-                {visibleDrinks.map((drink) => {
-                  const expanded = drink.id === expandedDrinkId;
+                {visibleDrinks.length ? (
+                  visibleDrinks.map((drink) => {
+                    const expanded = drink.id === expandedDrinkId;
 
-                  return (
-                    <Pressable
-                      key={drink.id}
-                      onPress={() => setExpandedDrinkId(expanded ? null : drink.id)}
-                      style={({ pressed }) => [
-                        styles.drinkCard,
-                        expanded && styles.drinkCardExpanded,
-                        pressed && styles.drinkCardPressed,
-                      ]}
-                    >
-                      <View style={styles.drinkCardHeader}>
-                        <ImagePreviewTrigger
-                          onOpen={(originFrame) => openDrinkPreview(drink, originFrame)}
-                          style={[styles.imagePreviewButton, styles.drinkVisualButton]}
-                          pressedStyle={styles.imagePreviewButtonPressed}
-                          stopPropagation
-                        >
-                          <DrinkVisual drink={drink} />
-                        </ImagePreviewTrigger>
-                        <View style={styles.drinkCardBody}>
-                          <View style={styles.drinkBadgeRow}>
-                            <View style={styles.primaryBadge}>
-                              <Text style={styles.primaryBadgeText}>{drink.technique}</Text>
-                            </View>
-                            <View style={styles.secondaryBadge}>
-                              <Text style={styles.secondaryBadgeText}>{drink.difficulty}</Text>
-                            </View>
-                            {drink.source === 'web-import' ? (
-                              <View style={styles.sourceBadge}>
-                                <Text style={styles.sourceBadgeText}>Web</Text>
+                    return (
+                      <Pressable
+                        key={drink.id}
+                        onPress={() => setExpandedDrinkId(expanded ? null : drink.id)}
+                        style={({ pressed }) => [
+                          styles.drinkCard,
+                          expanded && styles.drinkCardExpanded,
+                          pressed && styles.drinkCardPressed,
+                        ]}
+                      >
+                        <View style={styles.drinkCardHeader}>
+                          <ImagePreviewTrigger
+                            onOpen={(originFrame) => openDrinkPreview(drink, originFrame)}
+                            style={[styles.imagePreviewButton, styles.drinkVisualButton]}
+                            pressedStyle={styles.imagePreviewButtonPressed}
+                            stopPropagation
+                          >
+                            <DrinkVisual drink={drink} />
+                          </ImagePreviewTrigger>
+                          <View style={styles.drinkCardBody}>
+                            <View style={styles.drinkBadgeRow}>
+                              <View style={styles.primaryBadge}>
+                                <Text style={styles.primaryBadgeText}>{drink.technique}</Text>
                               </View>
-                            ) : null}
-                          </View>
+                              <View style={styles.secondaryBadge}>
+                                <Text style={styles.secondaryBadgeText}>{drink.difficulty}</Text>
+                              </View>
+                              {drink.source === 'web-import' ? (
+                                <View style={styles.sourceBadge}>
+                                  <Text style={styles.sourceBadgeText}>Web</Text>
+                                </View>
+                              ) : null}
+                            </View>
 
-                          <Text style={styles.drinkName}>{drink.name}</Text>
-                          <Text style={styles.drinkMeta}>
-                            {drink.category} · Glas: {drink.glass}
-                          </Text>
-                          <Text style={styles.drinkSummary}>{drink.summary}</Text>
+                            <Text style={styles.drinkName}>{drink.name}</Text>
+                            <Text style={styles.drinkMeta}>
+                              {drink.category} · Glas: {drink.glass}
+                            </Text>
+                            <Text style={styles.drinkSummary}>{drink.summary}</Text>
 
-                          <View style={styles.inlineDetail}>
-                            <Text style={styles.inlineLabel}>Garnitur</Text>
-                            <Text style={styles.inlineValue}>{drink.garnish}</Text>
+                            <View style={styles.inlineDetail}>
+                              <Text style={styles.inlineLabel}>Garnitur</Text>
+                              <Text style={styles.inlineValue}>{drink.garnish}</Text>
+                            </View>
                           </View>
                         </View>
-                      </View>
 
-                      {expanded ? (
-                        <View style={styles.expandedArea}>
-                          <View style={styles.detailBlock}>
-                            <Text style={styles.detailTitle}>Rezept</Text>
-                            {drink.ingredients.map((ingredient) => (
-                              <View
-                                key={`${drink.id}-${ingredient.amount}-${ingredient.item}`}
-                                style={styles.detailRow}
-                              >
-                                <Text style={styles.detailAmount}>{ingredient.amount || '—'}</Text>
-                                <Text style={styles.detailText}>{ingredient.item}</Text>
-                              </View>
-                            ))}
-                          </View>
+                        {expanded ? (
+                          <View style={styles.expandedArea}>
+                            <View style={styles.detailBlock}>
+                              <Text style={styles.detailTitle}>Rezept</Text>
+                              {drink.ingredients.map((ingredient) => (
+                                <View
+                                  key={`${drink.id}-${ingredient.amount}-${ingredient.item}`}
+                                  style={styles.detailRow}
+                                >
+                                  <Text style={styles.detailAmount}>{ingredient.amount || '—'}</Text>
+                                  <Text style={styles.detailText}>{ingredient.item}</Text>
+                                </View>
+                              ))}
+                            </View>
 
-                          <View style={styles.detailBlock}>
-                            <Text style={styles.detailTitle}>Zubereitung</Text>
-                            {drink.method.map((step, index) => (
-                              <View key={`${drink.id}-step-${index + 1}`} style={styles.methodRow}>
-                                <Text style={styles.methodIndex}>{index + 1}</Text>
-                                <Text style={styles.detailText}>{step}</Text>
-                              </View>
-                            ))}
-                          </View>
+                            <View style={styles.detailBlock}>
+                              <Text style={styles.detailTitle}>Zubereitung</Text>
+                              {drink.method.map((step, index) => (
+                                <View key={`${drink.id}-step-${index + 1}`} style={styles.methodRow}>
+                                  <Text style={styles.methodIndex}>{index + 1}</Text>
+                                  <Text style={styles.detailText}>{step}</Text>
+                                </View>
+                              ))}
+                            </View>
 
-                          <View style={styles.tipPanel}>
-                            <Text style={styles.tipTitle}>Barhinweis</Text>
-                            <Text style={styles.tipBody}>{drink.germanNote}</Text>
-                          </View>
+                            <View style={styles.tipPanel}>
+                              <Text style={styles.tipTitle}>Barhinweis</Text>
+                              <Text style={styles.tipBody}>{drink.germanNote}</Text>
+                            </View>
 
-                          <View style={styles.tipPanel}>
-                            <Text style={styles.tipTitle}>Worauf du achten solltest</Text>
-                            <Text style={styles.tipBody}>{drink.proTip}</Text>
+                            <View style={styles.tipPanel}>
+                              <Text style={styles.tipTitle}>Worauf du achten solltest</Text>
+                              <Text style={styles.tipBody}>{drink.proTip}</Text>
+                            </View>
                           </View>
-                        </View>
-                      ) : (
-                        <Text style={styles.tapHint}>Tippe für Rezept und Schritte</Text>
-                      )}
-                    </Pressable>
-                  );
-                })}
+                        ) : (
+                          <Text style={styles.tapHint}>Tippe für Rezept und Schritte</Text>
+                        )}
+                      </Pressable>
+                    );
+                  })
+                ) : (
+                  <View style={styles.emptyStateCard}>
+                    <Text style={styles.emptyStateTitle}>Keine Drinks gefunden</Text>
+                    <Text style={styles.emptyStateBody}>
+                      Prüfe die Suche oder wechsle die Kategorie. Es wird nach Name, Zutaten,
+                      Spirituosen, Technik, Glas und Garnitur gefiltert.
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
 
@@ -872,6 +1175,46 @@ export default function App() {
                 Konstanz ist am Anfang wichtiger als Tempo. Miss jeden Pour sauber ab, halte die
                 Gläser kalt und sauber und beachte immer die lokalen Alters- und Serviceregeln.
               </Text>
+            </View>
+          </>
+        ) : activeView === 'basics' ? (
+          <>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Bar Basics</Text>
+              <Text style={styles.sectionIntro}>
+                Kurzmodule für den Start an einer deutschen Bar: Station, Eis, Hygiene, Tempo und
+                Service.
+              </Text>
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.lessonRow}
+              >
+                {lessons.map((lesson) => (
+                  <View key={lesson.title} style={styles.lessonCard}>
+                    <Text style={styles.lessonTitle}>{lesson.title}</Text>
+                    <Text style={styles.lessonBody}>{lesson.body}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+
+              <View style={styles.basicsList}>
+                {barBasicsModules.map((module) => (
+                  <View key={module.title} style={styles.basicsCard}>
+                    <Text style={styles.basicsTitle}>{module.title}</Text>
+                    <Text style={styles.basicsSummary}>{module.summary}</Text>
+                    <View style={styles.basicsChecklist}>
+                      {module.checklist.map((item) => (
+                        <View key={`${module.title}-${item}`} style={styles.basicsChecklistRow}>
+                          <Text style={styles.basicsChecklistBullet}>•</Text>
+                          <Text style={styles.basicsChecklistText}>{item}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ))}
+              </View>
             </View>
           </>
         ) : (
@@ -884,8 +1227,8 @@ export default function App() {
             >
               <Text style={styles.sectionTitle}>Quiz</Text>
               <Text style={styles.sectionIntro}>
-                Baue den angezeigten Drink aus dem Kopf: Glas wählen, Zutaten zusammenstellen und
-                dann mit `Serve It!` abgeben.
+                Baue zufällige Drinks aus dem Kopf. Im Service-Modus musst du zusätzlich Mengen,
+                Garnitur und Reihenfolge sauber treffen.
               </Text>
 
               <View style={styles.tipJarCard}>
@@ -893,7 +1236,98 @@ export default function App() {
                   <Text style={styles.tipJarLabel}>Trinkgeldglas</Text>
                   <Text style={styles.tipJarValue}>{formatEuro(tipJar)}</Text>
                 </View>
-                <Text style={styles.tipJarMeta}>{allDrinks.length} Drinks im Quiz-Pool</Text>
+                <Text style={styles.tipJarMeta}>{quizPoolDrinks.length} Drinks im aktiven Pool</Text>
+              </View>
+
+              <View style={styles.quizCard}>
+                <Text style={styles.quizCardTitle}>Trainingsmodus</Text>
+                <View style={styles.quizModeRow}>
+                  {QUIZ_MODES.map((mode) => {
+                    const active = quizMode === mode.key;
+
+                    return (
+                      <Pressable
+                        key={mode.key}
+                        onPress={() => setQuizMode(mode.key)}
+                        style={({ pressed }) => [
+                          styles.quizModeChip,
+                          active && styles.quizModeChipActive,
+                          pressed && styles.quizModeChipPressed,
+                        ]}
+                      >
+                        <Text style={[styles.quizModeChipText, active && styles.quizModeChipTextActive]}>
+                          {mode.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <Text style={styles.quizSelectionText}>
+                  {quizMode === 'beginner'
+                    ? 'Einsteiger prüft Glas und Zutaten.'
+                    : 'Service prüft Glas, exakte Rezeptpositionen, Garnitur und Reihenfolge.'}
+                </Text>
+
+                <Text style={styles.quizCardTitle}>Pool</Text>
+                <View style={styles.quizModeRow}>
+                  {QUIZ_POOLS.map((pool) => {
+                    const active = quizPool === pool.key;
+
+                    return (
+                      <Pressable
+                        key={pool.key}
+                        onPress={() => setQuizPool(pool.key)}
+                        style={({ pressed }) => [
+                          styles.quizModeChip,
+                          active && styles.quizModeChipActive,
+                          pressed && styles.quizModeChipPressed,
+                        ]}
+                      >
+                        <Text style={[styles.quizModeChipText, active && styles.quizModeChipTextActive]}>
+                          {pool.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <Text style={styles.quizSelectionText}>
+                  {quizPool === 'mistakes'
+                    ? 'Fehlerfokus zeigt Drinks, bei denen falsche Antworten noch nicht aufgeholt wurden.'
+                    : 'Alle Drinks aus Bibliothek und Web-Importen können vorkommen.'}
+                </Text>
+              </View>
+
+              <View style={styles.quizCard}>
+                <Text style={styles.quizCardTitle}>Fortschritt</Text>
+                <View style={styles.statRow}>
+                  <StatTile label="Versuche" value={String(quizProgress.totalAttempts)} />
+                  <StatTile
+                    label="Trefferquote"
+                    value={formatPercent(quizProgress.correctAnswers, quizProgress.totalAttempts)}
+                  />
+                </View>
+                <View style={styles.statRow}>
+                  <StatTile label="Streak" value={String(quizProgress.currentStreak)} />
+                  <StatTile label="Best" value={String(quizProgress.bestStreak)} />
+                </View>
+
+                <Text style={styles.quizStepLabel}>Nur meine Fehler üben</Text>
+                {unresolvedMistakeDrinks.length ? (
+                  <View style={styles.mistakeList}>
+                    {unresolvedMistakeDrinks.slice(0, 4).map(({ drink, stats }) => (
+                      <View key={`mistake-${drink.id}`} style={styles.mistakeRow}>
+                        <Text style={styles.mistakeDrinkName}>{drink.name}</Text>
+                        <Text style={styles.mistakeMeta}>
+                          {stats.wrong} falsch · {stats.correct} richtig
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={styles.emptyIngredientState}>
+                    Noch keine offenen Fehler. Dein Fehler-Pool ist gerade leer.
+                  </Text>
+                )}
               </View>
 
               {currentDrink ? (
@@ -905,7 +1339,9 @@ export default function App() {
                       {currentDrink.category} · Technik: {currentDrink.technique}
                     </Text>
                     <Text style={styles.quizDrinkPrompt}>
-                      Welches Glas passt und welche Zutaten brauchst du?
+                      {serviceMode
+                        ? 'Service-Modus: Glas, genaue Rezeptpositionen, Garnitur und Reihenfolge treffen.'
+                        : 'Einsteiger-Modus: Welches Glas passt und welche Zutaten brauchst du?'}
                     </Text>
                   </View>
 
@@ -949,11 +1385,17 @@ export default function App() {
                   </View>
 
                   <View style={styles.quizCard}>
-                    <Text style={styles.quizCardTitle}>2. Zutaten zusammenstellen</Text>
+                    <Text style={styles.quizCardTitle}>
+                      2. {serviceMode ? 'Rezept inklusive Mengen bauen' : 'Zutaten zusammenstellen'}
+                    </Text>
                     <TextInput
                       value={ingredientSearchQuery}
                       onChangeText={handleIngredientSearchChange}
-                      placeholder="Zutat suchen"
+                      placeholder={
+                        serviceMode
+                          ? 'Rezeptposition oder Menge suchen'
+                          : 'Zutat suchen'
+                      }
                       placeholderTextColor="#7F9590"
                       style={[styles.searchInput, quizLocked && styles.quizInputDisabled]}
                       editable={!quizLocked}
@@ -963,10 +1405,11 @@ export default function App() {
                     />
 
                     <Text style={styles.quizSelectionCount}>
-                      {selectedIngredients.length} Zutaten ausgewählt
+                      {selectedIngredients.length}{' '}
+                      {serviceMode ? 'Rezeptpositionen' : 'Zutaten'} ausgewählt
                     </Text>
                     <Text style={styles.quizSelectionText}>
-                      {selectedIngredientsSummary || 'Noch keine Zutaten ausgewählt.'}
+                      {selectedIngredientsSummary || 'Noch keine Auswahl getroffen.'}
                     </Text>
 
                     {selectedIngredients.length ? (
@@ -1018,11 +1461,136 @@ export default function App() {
                         })
                       ) : (
                         <Text style={styles.emptyIngredientState}>
-                          Keine Zutaten für diese Suche gefunden.
+                          Keine Rezeptpositionen für diese Suche gefunden.
                         </Text>
                       )}
                     </View>
                   </View>
+
+                  {serviceMode ? (
+                    <>
+                      <View style={styles.quizCard}>
+                        <Text style={styles.quizCardTitle}>3. Die richtige Garnitur wählen</Text>
+                        <View style={styles.ingredientBank}>
+                          {garnishBank.map((garnish) => {
+                            const active = selectedGarnish === garnish;
+
+                            return (
+                              <Pressable
+                                key={garnish}
+                                onPress={() => chooseGarnish(garnish)}
+                                disabled={quizLocked}
+                                style={({ pressed }) => [
+                                  styles.ingredientChip,
+                                  active && styles.ingredientChipActive,
+                                  quizLocked && styles.quizChipDisabled,
+                                  pressed && !quizLocked && styles.quizIngredientChipPressed,
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.ingredientChipText,
+                                    active && styles.ingredientChipTextActive,
+                                  ]}
+                                >
+                                  {garnish}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                        <Text style={styles.quizSelectionText}>
+                          {selectedGarnish ? `Gewählt: ${selectedGarnish}` : 'Noch keine Garnitur gewählt.'}
+                        </Text>
+                      </View>
+
+                      <View style={styles.quizCard}>
+                        <View style={styles.buildOrderHeader}>
+                          <Text style={styles.quizCardTitle}>4. Reihenfolge aufbauen</Text>
+                          <Pressable
+                            onPress={() => setSelectedBuildSteps([])}
+                            disabled={quizLocked || !selectedBuildSteps.length}
+                            style={({ pressed }) => [
+                              styles.inlineResetButton,
+                              (quizLocked || !selectedBuildSteps.length) && styles.inlineResetButtonDisabled,
+                              pressed &&
+                                !quizLocked &&
+                                !!selectedBuildSteps.length &&
+                                styles.inlineResetButtonPressed,
+                            ]}
+                          >
+                            <Text style={styles.inlineResetButtonText}>Zurücksetzen</Text>
+                          </Pressable>
+                        </View>
+
+                        <Text style={styles.quizSelectionCount}>
+                          {selectedBuildSteps.length} von {currentDrink.method.length} Schritten gesetzt
+                        </Text>
+
+                        {selectedBuildSteps.length ? (
+                          <View style={styles.buildSequenceList}>
+                            {selectedBuildSteps.map((step, index) => (
+                              <Pressable
+                                key={`selected-step-${step}`}
+                                onPress={() => toggleBuildStep(step)}
+                                disabled={quizLocked}
+                                style={({ pressed }) => [
+                                  styles.buildSequenceCard,
+                                  quizLocked && styles.quizChipDisabled,
+                                  pressed && !quizLocked && styles.quizIngredientChipPressed,
+                                ]}
+                              >
+                                <Text style={styles.methodIndex}>{index + 1}</Text>
+                                <Text style={styles.buildSequenceText}>{step}</Text>
+                              </Pressable>
+                            ))}
+                          </View>
+                        ) : (
+                          <Text style={styles.quizSelectionText}>
+                            Noch keine Reihenfolge gesetzt. Tippe unten die Schritte in der Reihenfolge an,
+                            in der du den Drink bauen würdest.
+                          </Text>
+                        )}
+
+                        <View style={styles.buildOptionsList}>
+                          {buildStepOptions.map((step) => {
+                            const active = selectedBuildSteps.includes(step);
+
+                            return (
+                              <Pressable
+                                key={`step-option-${step}`}
+                                onPress={() => toggleBuildStep(step)}
+                                disabled={quizLocked}
+                                style={({ pressed }) => [
+                                  styles.buildOptionChip,
+                                  active && styles.buildOptionChipActive,
+                                  quizLocked && styles.quizChipDisabled,
+                                  pressed && !quizLocked && styles.quizIngredientChipPressed,
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.buildOptionChipText,
+                                    active && styles.buildOptionChipTextActive,
+                                  ]}
+                                >
+                                  {step}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    </>
+                  ) : (
+                    <View style={styles.hintCard}>
+                      <Text style={styles.hintTitle}>Nächster Schritt</Text>
+                      <Text style={styles.hintBody}>
+                        Im Service-Modus kommen exakte Mengen, Garnitur und Reihenfolge dazu. Wenn der
+                        Einsteiger-Modus sitzt, schalte dort um.
+                      </Text>
+                    </View>
+                  )}
 
                   <View style={styles.quizActionRow}>
                     <Pressable
@@ -1058,6 +1626,16 @@ export default function App() {
                         </Text>
                         <Text style={styles.feedbackBody}>{quizStatus.message}</Text>
 
+                        {quizStatus.kind === 'wrong' && quizStatus.details.length ? (
+                          <View style={styles.feedbackList}>
+                            {quizStatus.details.map((detail) => (
+                              <Text key={detail} style={styles.feedbackListItem}>
+                                • {detail}
+                              </Text>
+                            ))}
+                          </View>
+                        ) : null}
+
                         {quizStatus.kind === 'wrong' ? (
                           <Pressable
                             onPress={handleCheat}
@@ -1090,6 +1668,21 @@ export default function App() {
                                 </View>
                               ))}
                             </View>
+                            {serviceMode ? (
+                              <>
+                                <Text style={styles.answerRevealTitle}>Richtige Garnitur</Text>
+                                <Text style={styles.answerRevealBody}>{currentDrink.garnish}</Text>
+                                <Text style={styles.answerRevealTitle}>Richtige Reihenfolge</Text>
+                                <View style={styles.answerRevealList}>
+                                  {currentDrink.method.map((step, index) => (
+                                    <View key={`${currentDrink.id}-step-answer-${index + 1}`} style={styles.answerRevealRow}>
+                                      <Text style={styles.answerRevealAmount}>{index + 1}</Text>
+                                      <Text style={styles.answerRevealText}>{step}</Text>
+                                    </View>
+                                  ))}
+                                </View>
+                              </>
+                            ) : null}
                           </View>
                         ) : null}
                       </View>
@@ -1098,55 +1691,41 @@ export default function App() {
                 </>
               ) : (
                 <View style={styles.quizCard}>
-                  <Text style={styles.emptyIngredientState}>Quiz wird vorbereitet.</Text>
+                  <Text style={styles.emptyStateTitle}>
+                    {quizPool === 'mistakes'
+                      ? 'Dein Fehler-Pool ist leer'
+                      : 'Quiz wird vorbereitet'}
+                  </Text>
+                  <Text style={styles.emptyStateBody}>
+                    {quizPool === 'mistakes'
+                      ? 'Sobald es offene Fehl-Drinks gibt, kannst du sie hier gezielt nachtrainieren. Bis dahin nutze den Pool "Alle Drinks".'
+                      : 'Sobald Drinks geladen sind, erscheint hier der nächste Trainings-Drink.'}
+                  </Text>
                 </View>
               )}
             </View>
           </>
         )}
 
-        <View style={styles.legalCard}>
-          <Text style={styles.legalTitle}>Impressum</Text>
-          <Text style={styles.legalIntro}>Angaben gemaess § 5 DDG</Text>
-
-          <View style={styles.legalBlock}>
-            <Text style={styles.legalLabel}>Diensteanbieter</Text>
-            <Text style={styles.legalValue}>Ryan Nyberg</Text>
-          </View>
-
-          <View style={styles.legalBlock}>
-            <Text style={styles.legalLabel}>E-Mail</Text>
+        {!activeLegalPage ? (
+          <View style={styles.legalFooterLinks}>
             <Pressable
-              onPress={handleEmailPress}
-              style={({ pressed }) => [styles.legalLinkWrap, pressed && styles.legalLinkPressed]}
+              onPress={() => openLegalPage('impressum')}
+              style={({ pressed }) => [styles.legalFooterLinkWrap, pressed && styles.legalLinkPressed]}
             >
-              <Text style={styles.legalLink}>onlyhouse@gmail.com</Text>
+              <Text style={styles.legalFooterLink}>Impressum</Text>
+            </Pressable>
+            <Text style={styles.legalFooterDivider}>·</Text>
+            <Pressable
+              onPress={() => openLegalPage('privacy')}
+              style={({ pressed }) => [styles.legalFooterLinkWrap, pressed && styles.legalLinkPressed]}
+            >
+              <Text style={styles.legalFooterLink}>Datenschutz</Text>
             </Pressable>
           </View>
-
-          <View style={styles.legalBlock}>
-            <Text style={styles.legalLabel}>Anschrift</Text>
-            <Text style={styles.legalValue}>
-              Leipziger Str. 222{'\n'}
-              01139 Dresden, Germany
-            </Text>
-          </View>
-
-          <View style={styles.legalBlock}>
-            <Text style={styles.legalLabel}>Verantwortlich fuer den Inhalt</Text>
-            <Text style={styles.legalValue}>Ryan Nyberg</Text>
-            <Text style={styles.legalSubtle}>
-              Leipziger Str. 222{'\n'}
-              01139 Dresden, Germany
-            </Text>
-          </View>
-
-          <Text style={styles.legalNotice}>
-            Weitere Pflichtangaben wie Registereintrag, Umsatzsteuer-ID oder berufsrechtliche
-            Angaben sind nur erforderlich, wenn sie auf dein Angebot zutreffen.
-          </Text>
-        </View>
+        ) : null}
       </ScrollView>
+
       <Modal
         visible={isImagePreviewVisible}
         animationType="none"
@@ -1204,7 +1783,7 @@ export default function App() {
                   },
                 ]}
               >
-                {imagePreview?.kind === 'glass' ? (
+                {imagePreview.kind === 'glass' ? (
                   <GlasswareVisual
                     kind={imagePreview.illustration}
                     width={previewVisualSize}
@@ -1212,7 +1791,7 @@ export default function App() {
                   />
                 ) : null}
 
-                {imagePreview?.kind === 'drink' ? (
+                {imagePreview.kind === 'drink' ? (
                   <DrinkVisual
                     drink={imagePreview.drink}
                     size={previewVisualSize}
@@ -1220,12 +1799,8 @@ export default function App() {
                   />
                 ) : null}
 
-                {imagePreview?.kind === 'remote' ? (
-                  <Image
-                    source={{ uri: imagePreview.uri }}
-                    style={styles.previewImage}
-                    resizeMode="contain"
-                  />
+                {imagePreview.kind === 'remote' ? (
+                  <Image source={{ uri: imagePreview.uri }} style={styles.previewImage} resizeMode="contain" />
                 ) : null}
               </Animated.View>
             ) : null}
@@ -1262,23 +1837,62 @@ function resolvePreviewFrame(
   };
 }
 
-function buildIngredientBank(drinkPool: Drink[]) {
+function buildIngredientBank(drinkPool: Drink[], mode: QuizMode) {
   const seen = new Set<string>();
   const ingredients: string[] = [];
 
   for (const drink of drinkPool) {
-    for (const ingredient of drink.ingredients) {
-      const normalized = normalizeQuizLabel(ingredient.item);
+    const labels = getExpectedIngredientLabels(drink, mode);
+
+    for (const label of labels) {
+      const normalized = normalizeQuizLabel(label);
       if (!normalized || seen.has(normalized)) {
         continue;
       }
 
       seen.add(normalized);
-      ingredients.push(ingredient.item);
+      ingredients.push(label);
     }
   }
 
   return ingredients.sort((left, right) => left.localeCompare(right, 'de'));
+}
+
+function buildGarnishBank(drinkPool: Drink[]) {
+  const seen = new Set<string>();
+  const garnishes: string[] = [];
+
+  for (const drink of drinkPool) {
+    const normalized = normalizeQuizLabel(drink.garnish);
+    if (!normalized || seen.has(normalized)) {
+      continue;
+    }
+
+    seen.add(normalized);
+    garnishes.push(drink.garnish);
+  }
+
+  return garnishes.sort((left, right) => left.localeCompare(right, 'de'));
+}
+
+function getExpectedIngredientLabels(drink: Drink, mode: QuizMode) {
+  if (mode === 'service') {
+    return drink.ingredients.map((ingredient) => formatIngredientLabel(ingredient.amount, ingredient.item));
+  }
+
+  return drink.ingredients.map((ingredient) => ingredient.item);
+}
+
+function formatIngredientLabel(amount: string, item: string) {
+  return amount ? `${amount} ${item}` : item;
+}
+
+function buildQuizPool(drinkPool: Drink[], pool: QuizPool, progress: QuizProgress) {
+  if (pool === 'all') {
+    return drinkPool;
+  }
+
+  return drinkPool.filter((drink) => hasOpenMistake(getDrinkProgress(progress, drink.id)));
 }
 
 function pickRandomDrinkId(drinkPool: Drink[], excludedId: string | null) {
@@ -1310,6 +1924,16 @@ function ingredientListsMatch(expectedIngredients: string[], selectedIngredients
   }
 
   return true;
+}
+
+function stepListsMatch(expectedSteps: string[], selectedSteps: string[]) {
+  if (expectedSteps.length !== selectedSteps.length) {
+    return false;
+  }
+
+  return expectedSteps.every(
+    (step, index) => normalizeQuizLabel(step) === normalizeQuizLabel(selectedSteps[index] ?? '')
+  );
 }
 
 function getAcceptedQuizGlasses(glassLabel: string) {
@@ -1382,6 +2006,74 @@ function normalizeQuizLabel(value: string) {
   return normalizeDrinkKey(value).replace(/\s+/g, ' ');
 }
 
+function matchesLibraryQuery(drink: Drink, query: string) {
+  const haystack = [
+    drink.name,
+    drink.category,
+    drink.glass,
+    drink.garnish,
+    drink.summary,
+    drink.technique,
+    drink.difficulty,
+    ...drink.ingredients.map((ingredient) => `${ingredient.amount} ${ingredient.item}`),
+  ]
+    .join(' ')
+    .trim();
+
+  return normalizeQuizLabel(haystack).includes(query);
+}
+
+function shuffleArray<T>(items: readonly T[]) {
+  const next = [...items];
+
+  for (let index = next.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [next[index], next[swapIndex]] = [next[swapIndex], next[index]];
+  }
+
+  return next;
+}
+
+function recordQuizAttempt(progress: QuizProgress, drinkId: string, correct: boolean): QuizProgress {
+  const currentDrinkProgress = progress.byDrink[drinkId] ?? { attempts: 0, correct: 0, wrong: 0 };
+  const nextDrinkProgress: QuizDrinkProgress = {
+    attempts: currentDrinkProgress.attempts + 1,
+    correct: currentDrinkProgress.correct + (correct ? 1 : 0),
+    wrong: currentDrinkProgress.wrong + (correct ? 0 : 1),
+  };
+
+  const nextCurrentStreak = correct ? progress.currentStreak + 1 : 0;
+
+  return {
+    totalAttempts: progress.totalAttempts + 1,
+    correctAnswers: progress.correctAnswers + (correct ? 1 : 0),
+    wrongAnswers: progress.wrongAnswers + (correct ? 0 : 1),
+    currentStreak: nextCurrentStreak,
+    bestStreak: Math.max(progress.bestStreak, nextCurrentStreak),
+    byDrink: {
+      ...progress.byDrink,
+      [drinkId]: nextDrinkProgress,
+    },
+  };
+}
+
+function getDrinkProgress(progress: QuizProgress, drinkId: string): QuizDrinkProgress {
+  return progress.byDrink[drinkId] ?? { attempts: 0, correct: 0, wrong: 0 };
+}
+
+function hasOpenMistake(stats: QuizDrinkProgress) {
+  return stats.wrong > stats.correct;
+}
+
+function formatPercent(numerator: number, denominator: number) {
+  if (!denominator) {
+    return '0 %';
+  }
+
+  const percentage = Math.round((numerator / denominator) * 100);
+  return `${percentage} %`;
+}
+
 function formatEuro(amount: number) {
   try {
     return new Intl.NumberFormat('de-DE', {
@@ -1407,7 +2099,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 18,
     marginTop: 14,
     paddingHorizontal: 22,
-    paddingVertical: 26,
+    paddingVertical: 24,
     borderRadius: 28,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 14 },
@@ -1421,6 +2113,12 @@ const styles = StyleSheet.create({
     lineHeight: 42,
     fontWeight: '700',
     fontFamily: Platform.select({ ios: 'Georgia', default: undefined }),
+  },
+  heroSubtitle: {
+    marginTop: 10,
+    color: '#D6E0DD',
+    fontSize: 15,
+    lineHeight: 22,
   },
   viewSwitch: {
     flexDirection: 'row',
@@ -1503,6 +2201,73 @@ const styles = StyleSheet.create({
     color: '#B7C3C0',
     fontSize: 14,
     lineHeight: 22,
+  },
+  lessonRow: {
+    paddingTop: 16,
+    paddingRight: 18,
+    gap: 12,
+  },
+  lessonCard: {
+    width: 230,
+    borderRadius: 22,
+    padding: 16,
+    backgroundColor: '#102327',
+    borderWidth: 1,
+    borderColor: '#234147',
+  },
+  lessonTitle: {
+    color: '#F2E7D6',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  lessonBody: {
+    marginTop: 10,
+    color: '#C9D4D1',
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  basicsList: {
+    marginTop: 16,
+    gap: 14,
+  },
+  basicsCard: {
+    borderRadius: 22,
+    padding: 18,
+    backgroundColor: '#101A1E',
+    borderWidth: 1,
+    borderColor: '#23373F',
+  },
+  basicsTitle: {
+    color: '#F5E9D8',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  basicsSummary: {
+    marginTop: 8,
+    color: '#C8D3CF',
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  basicsChecklist: {
+    marginTop: 12,
+    gap: 9,
+  },
+  basicsChecklistRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  basicsChecklistBullet: {
+    color: '#78D0C1',
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+  basicsChecklistText: {
+    flex: 1,
+    color: '#D6DFDC',
+    fontSize: 14,
+    lineHeight: 21,
   },
   searchPanel: {
     marginTop: 16,
@@ -1641,6 +2406,9 @@ const styles = StyleSheet.create({
   searchActionButtonMuted: {
     backgroundColor: '#1A272C',
   },
+  searchActionButtonDisabled: {
+    opacity: 0.7,
+  },
   searchActionButtonPressed: {
     opacity: 0.92,
   },
@@ -1668,6 +2436,9 @@ const styles = StyleSheet.create({
   filterChipActive: {
     backgroundColor: '#276C62',
     borderColor: '#2F8B7E',
+  },
+  filterChipPressed: {
+    opacity: 0.92,
   },
   filterChipText: {
     color: '#B7C3C0',
@@ -1860,6 +2631,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
   },
+  emptyStateCard: {
+    borderRadius: 24,
+    padding: 20,
+    backgroundColor: '#101A1E',
+    borderWidth: 1,
+    borderColor: '#23373F',
+  },
+  emptyStateTitle: {
+    color: '#F4EBDE',
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  emptyStateBody: {
+    marginTop: 8,
+    color: '#C5D0CD',
+    fontSize: 14,
+    lineHeight: 22,
+  },
   footerCard: {
     marginTop: 28,
     marginHorizontal: 18,
@@ -1878,15 +2667,491 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
   },
+  tipJarCard: {
+    marginTop: 18,
+    borderRadius: 24,
+    padding: 20,
+    backgroundColor: '#102327',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 16,
+  },
+  tipJarLabel: {
+    color: '#AFC1BC',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.7,
+    textTransform: 'uppercase',
+  },
+  tipJarValue: {
+    color: '#F7EAD8',
+    fontSize: 34,
+    lineHeight: 38,
+    fontWeight: '700',
+    marginTop: 6,
+    fontFamily: Platform.select({ ios: 'Georgia', default: undefined }),
+  },
+  tipJarMeta: {
+    color: '#AFC1BC',
+    fontSize: 14,
+    lineHeight: 20,
+    maxWidth: 140,
+    textAlign: 'right',
+  },
+  quizCard: {
+    marginTop: 16,
+    borderRadius: 24,
+    padding: 18,
+    backgroundColor: '#101A1E',
+    borderWidth: 1,
+    borderColor: '#23373F',
+    gap: 12,
+  },
+  hintCard: {
+    marginTop: 16,
+    borderRadius: 24,
+    padding: 18,
+    backgroundColor: '#122126',
+    borderWidth: 1,
+    borderColor: '#2A434A',
+  },
+  hintTitle: {
+    color: '#F3E9DA',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  hintBody: {
+    marginTop: 8,
+    color: '#CCD6D2',
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  quizStepLabel: {
+    color: '#DEAB70',
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+  },
+  quizDrinkName: {
+    color: '#F5E9D8',
+    fontSize: 30,
+    lineHeight: 34,
+    fontWeight: '700',
+    fontFamily: Platform.select({ ios: 'Georgia', default: undefined }),
+  },
+  quizDrinkMeta: {
+    color: '#94A8A4',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  quizDrinkPrompt: {
+    color: '#C5D1CD',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  quizCardTitle: {
+    color: '#F0E6D8',
+    fontSize: 19,
+    fontWeight: '700',
+  },
+  quizModeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  quizModeChip: {
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    backgroundColor: '#132025',
+    borderWidth: 1,
+    borderColor: '#284048',
+  },
+  quizModeChipActive: {
+    backgroundColor: '#276C62',
+    borderColor: '#2F8B7E',
+  },
+  quizModeChipPressed: {
+    opacity: 0.94,
+  },
+  quizModeChipText: {
+    color: '#B7C3C0',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  quizModeChipTextActive: {
+    color: '#F4EEE4',
+  },
+  statRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  statTile: {
+    flex: 1,
+    borderRadius: 18,
+    padding: 14,
+    backgroundColor: '#0D1619',
+    borderWidth: 1,
+    borderColor: '#2A4048',
+  },
+  statTileLabel: {
+    color: '#92A7A1',
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  statTileValue: {
+    marginTop: 6,
+    color: '#F5E9D8',
+    fontSize: 24,
+    lineHeight: 28,
+    fontWeight: '700',
+  },
+  mistakeList: {
+    gap: 10,
+  },
+  mistakeRow: {
+    borderRadius: 16,
+    padding: 12,
+    backgroundColor: '#0D1619',
+    borderWidth: 1,
+    borderColor: '#253A42',
+  },
+  mistakeDrinkName: {
+    color: '#F2E7D7',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  mistakeMeta: {
+    marginTop: 4,
+    color: '#AAB9B5',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  quizGlassRow: {
+    paddingRight: 18,
+    gap: 10,
+  },
+  quizGlassChip: {
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    backgroundColor: '#132025',
+    borderWidth: 1,
+    borderColor: '#284048',
+  },
+  quizGlassChipActive: {
+    backgroundColor: '#276C62',
+    borderColor: '#2F8B7E',
+  },
+  quizGlassChipPressed: {
+    opacity: 0.94,
+  },
+  quizGlassChipText: {
+    color: '#C7D2CF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  quizGlassChipTextActive: {
+    color: '#F4EEE4',
+  },
+  quizSelectionCount: {
+    color: '#E4B277',
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+  },
+  quizSelectionText: {
+    color: '#C7D1CE',
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  quizInputDisabled: {
+    opacity: 0.7,
+  },
+  selectedIngredientRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  selectedIngredientChip: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#275A53',
+  },
+  selectedIngredientChipText: {
+    color: '#F5EFE5',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  ingredientBank: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  ingredientChip: {
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#132025',
+    borderWidth: 1,
+    borderColor: '#294048',
+  },
+  ingredientChipActive: {
+    backgroundColor: '#276C62',
+    borderColor: '#2F8B7E',
+  },
+  ingredientChipText: {
+    color: '#D2DBD8',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
+  },
+  ingredientChipTextActive: {
+    color: '#F4EEE4',
+  },
+  quizIngredientChipPressed: {
+    opacity: 0.92,
+  },
+  quizChipDisabled: {
+    opacity: 0.55,
+  },
+  buildOrderHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  inlineResetButton: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    backgroundColor: '#15262B',
+    borderWidth: 1,
+    borderColor: '#2B434A',
+  },
+  inlineResetButtonDisabled: {
+    opacity: 0.5,
+  },
+  inlineResetButtonPressed: {
+    opacity: 0.92,
+  },
+  inlineResetButtonText: {
+    color: '#DDE6E3',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  buildSequenceList: {
+    gap: 10,
+  },
+  buildSequenceCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    borderRadius: 16,
+    padding: 12,
+    backgroundColor: '#0D1619',
+    borderWidth: 1,
+    borderColor: '#294048',
+  },
+  buildSequenceText: {
+    flex: 1,
+    color: '#D2DBD8',
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  buildOptionsList: {
+    gap: 10,
+  },
+  buildOptionChip: {
+    borderRadius: 16,
+    padding: 12,
+    backgroundColor: '#132025',
+    borderWidth: 1,
+    borderColor: '#294048',
+  },
+  buildOptionChipActive: {
+    backgroundColor: '#276C62',
+    borderColor: '#2F8B7E',
+  },
+  buildOptionChipText: {
+    color: '#D2DBD8',
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '600',
+  },
+  buildOptionChipTextActive: {
+    color: '#F4EEE4',
+  },
+  emptyIngredientState: {
+    color: '#AAB7B4',
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  quizActionRow: {
+    marginTop: 16,
+    gap: 16,
+  },
+  serveButton: {
+    borderRadius: 20,
+    paddingVertical: 16,
+    alignItems: 'center',
+    backgroundColor: '#2A675E',
+  },
+  serveButtonSuccess: {
+    backgroundColor: '#2A7A5C',
+  },
+  serveButtonError: {
+    backgroundColor: '#8C433A',
+  },
+  serveButtonInfo: {
+    backgroundColor: '#2D4952',
+  },
+  serveButtonDisabled: {
+    opacity: 0.55,
+  },
+  serveButtonPressed: {
+    opacity: 0.94,
+  },
+  serveButtonText: {
+    color: '#FFF7EB',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  feedbackCard: {
+    borderRadius: 24,
+    padding: 18,
+    borderWidth: 1,
+    gap: 10,
+  },
+  feedbackCardSuccess: {
+    backgroundColor: '#10251F',
+    borderColor: '#2D6657',
+  },
+  feedbackCardWarning: {
+    backgroundColor: '#281B18',
+    borderColor: '#724638',
+  },
+  feedbackCardInfo: {
+    backgroundColor: '#142025',
+    borderColor: '#324C55',
+  },
+  feedbackTitle: {
+    color: '#F4EBDD',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  feedbackBody: {
+    color: '#CDD6D3',
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  feedbackList: {
+    gap: 6,
+  },
+  feedbackListItem: {
+    color: '#F0D6C8',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  cheatButton: {
+    alignSelf: 'flex-start',
+    marginTop: 2,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#7C4C30',
+  },
+  cheatButtonPressed: {
+    opacity: 0.92,
+  },
+  cheatButtonText: {
+    color: '#FFF5E9',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  answerReveal: {
+    marginTop: 4,
+    borderRadius: 18,
+    padding: 14,
+    backgroundColor: '#0D1619',
+    borderWidth: 1,
+    borderColor: '#2A4048',
+    gap: 8,
+  },
+  answerRevealTitle: {
+    color: '#7ACDBE',
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  answerRevealBody: {
+    color: '#D3DCDA',
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  answerRevealList: {
+    gap: 8,
+  },
+  answerRevealRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  answerRevealAmount: {
+    width: 68,
+    color: '#E1A86B',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  answerRevealText: {
+    flex: 1,
+    color: '#D3DCDA',
+    fontSize: 14,
+    lineHeight: 21,
+  },
   legalCard: {
     marginTop: 28,
-    marginHorizontal: 18,
     borderRadius: 26,
     padding: 20,
     backgroundColor: '#0F191D',
     borderWidth: 1,
     borderColor: '#23373F',
     gap: 14,
+  },
+  legalPageHeader: {
+    marginTop: 4,
+    gap: 10,
+  },
+  legalPageKicker: {
+    color: '#AFC1BC',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.7,
+    textTransform: 'uppercase',
+  },
+  legalBackButton: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: '#132025',
+    borderWidth: 1,
+    borderColor: '#294048',
+  },
+  legalBackButtonPressed: {
+    opacity: 0.9,
+  },
+  legalBackButtonText: {
+    color: '#E8F0EE',
+    fontSize: 13,
+    fontWeight: '700',
   },
   legalTitle: {
     color: '#F4EBDE',
@@ -1935,6 +3200,29 @@ const styles = StyleSheet.create({
   legalNotice: {
     color: '#93A5A1',
     fontSize: 13,
+    lineHeight: 20,
+  },
+  legalFooterLinks: {
+    marginTop: 30,
+    marginHorizontal: 18,
+    marginBottom: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  legalFooterLinkWrap: {
+    alignSelf: 'center',
+  },
+  legalFooterLink: {
+    color: '#9BCFC6',
+    fontSize: 14,
+    lineHeight: 20,
+    textDecorationLine: 'underline',
+  },
+  legalFooterDivider: {
+    color: '#637975',
+    fontSize: 16,
     lineHeight: 20,
   },
   previewOverlay: {
@@ -2003,286 +3291,5 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     backgroundColor: '#0F191D',
-  },
-  tipJarCard: {
-    marginTop: 18,
-    borderRadius: 24,
-    padding: 20,
-    backgroundColor: '#102327',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 16,
-  },
-  tipJarLabel: {
-    color: '#AFC1BC',
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.7,
-    textTransform: 'uppercase',
-  },
-  tipJarValue: {
-    color: '#F7EAD8',
-    fontSize: 34,
-    lineHeight: 38,
-    fontWeight: '700',
-    marginTop: 6,
-    fontFamily: Platform.select({ ios: 'Georgia', default: undefined }),
-  },
-  tipJarMeta: {
-    color: '#AFC1BC',
-    fontSize: 14,
-    lineHeight: 20,
-    maxWidth: 120,
-    textAlign: 'right',
-  },
-  quizCard: {
-    marginTop: 16,
-    borderRadius: 24,
-    padding: 18,
-    backgroundColor: '#101A1E',
-    borderWidth: 1,
-    borderColor: '#23373F',
-    gap: 12,
-  },
-  quizStepLabel: {
-    color: '#DEAB70',
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.7,
-  },
-  quizDrinkName: {
-    color: '#F5E9D8',
-    fontSize: 30,
-    lineHeight: 34,
-    fontWeight: '700',
-    fontFamily: Platform.select({ ios: 'Georgia', default: undefined }),
-  },
-  quizDrinkMeta: {
-    color: '#94A8A4',
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  quizDrinkPrompt: {
-    color: '#C5D1CD',
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  feedbackCard: {
-    marginTop: 16,
-    borderRadius: 24,
-    padding: 18,
-    borderWidth: 1,
-    gap: 10,
-  },
-  feedbackCardSuccess: {
-    backgroundColor: '#10251F',
-    borderColor: '#2D6657',
-  },
-  feedbackCardWarning: {
-    backgroundColor: '#281B18',
-    borderColor: '#724638',
-  },
-  feedbackCardInfo: {
-    backgroundColor: '#142025',
-    borderColor: '#324C55',
-  },
-  feedbackTitle: {
-    color: '#F4EBDD',
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  feedbackBody: {
-    color: '#CDD6D3',
-    fontSize: 14,
-    lineHeight: 21,
-  },
-  cheatButton: {
-    alignSelf: 'flex-start',
-    marginTop: 2,
-    borderRadius: 999,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: '#7C4C30',
-  },
-  cheatButtonPressed: {
-    opacity: 0.92,
-  },
-  cheatButtonText: {
-    color: '#FFF5E9',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  answerReveal: {
-    marginTop: 4,
-    borderRadius: 18,
-    padding: 14,
-    backgroundColor: '#0D1619',
-    borderWidth: 1,
-    borderColor: '#2A4048',
-    gap: 8,
-  },
-  answerRevealTitle: {
-    color: '#7ACDBE',
-    fontSize: 13,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-  answerRevealBody: {
-    color: '#D3DCDA',
-    fontSize: 14,
-    lineHeight: 21,
-  },
-  answerRevealList: {
-    gap: 8,
-  },
-  answerRevealRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-  },
-  answerRevealAmount: {
-    width: 68,
-    color: '#E1A86B',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  answerRevealText: {
-    flex: 1,
-    color: '#D3DCDA',
-    fontSize: 14,
-    lineHeight: 21,
-  },
-  quizCardTitle: {
-    color: '#F0E6D8',
-    fontSize: 19,
-    fontWeight: '700',
-  },
-  quizGlassRow: {
-    paddingRight: 18,
-    gap: 10,
-  },
-  quizGlassChip: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    backgroundColor: '#132025',
-    borderWidth: 1,
-    borderColor: '#284048',
-  },
-  quizGlassChipActive: {
-    backgroundColor: '#276C62',
-    borderColor: '#2F8B7E',
-  },
-  quizGlassChipPressed: {
-    opacity: 0.94,
-  },
-  quizGlassChipText: {
-    color: '#B7C3C0',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  quizGlassChipTextActive: {
-    color: '#F4EEE4',
-  },
-  quizChipDisabled: {
-    opacity: 0.6,
-  },
-  quizSelectionCount: {
-    color: '#E1A86B',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  quizSelectionText: {
-    color: '#C4D0CC',
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  selectedIngredientRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  selectedIngredientChip: {
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    backgroundColor: '#276C62',
-    borderWidth: 1,
-    borderColor: '#2F8B7E',
-  },
-  selectedIngredientChipText: {
-    color: '#F4EEE4',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  ingredientBank: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  ingredientChip: {
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    backgroundColor: '#132025',
-    borderWidth: 1,
-    borderColor: '#284048',
-  },
-  ingredientChipActive: {
-    backgroundColor: '#7C4C30',
-    borderColor: '#8E5A39',
-  },
-  ingredientChipText: {
-    color: '#B7C3C0',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  ingredientChipTextActive: {
-    color: '#FFF5E9',
-  },
-  quizIngredientChipPressed: {
-    opacity: 0.92,
-  },
-  quizInputDisabled: {
-    opacity: 0.7,
-  },
-  emptyIngredientState: {
-    color: '#93A5A1',
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  quizActionRow: {
-    marginTop: 18,
-    gap: 12,
-  },
-  serveButton: {
-    borderRadius: 22,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    alignItems: 'center',
-    backgroundColor: '#276C62',
-  },
-  serveButtonSuccess: {
-    backgroundColor: '#2F8B55',
-  },
-  serveButtonError: {
-    backgroundColor: '#8B3E3E',
-  },
-  serveButtonInfo: {
-    backgroundColor: '#355A68',
-  },
-  serveButtonDisabled: {
-    opacity: 0.45,
-  },
-  serveButtonPressed: {
-    opacity: 0.92,
-  },
-  serveButtonText: {
-    color: '#F4EEE4',
-    fontSize: 17,
-    fontWeight: '700',
   },
 });

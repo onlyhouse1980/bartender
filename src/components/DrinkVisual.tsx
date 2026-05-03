@@ -31,6 +31,23 @@ export function DrinkVisual({ drink, size = 124, resizeMode = 'cover' }: DrinkVi
     );
   }
 
+  if (drink.cachedImageDataUrl) {
+    return (
+      <Image
+        source={{ uri: drink.cachedImageDataUrl }}
+        style={[
+          styles.image,
+          {
+            width: size,
+            height: size,
+            borderRadius: Math.round(size * 0.23),
+          },
+        ]}
+        resizeMode={resizeMode}
+      />
+    );
+  }
+
   if (drink.imageUrl) {
     return (
       <Image

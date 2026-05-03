@@ -53,7 +53,10 @@ export async function searchWebDrinks(query: string): Promise<WebDrinkSearchResu
   });
 }
 
-export function webResultToDrink(result: WebDrinkSearchResult): Drink {
+export function webResultToDrink(
+  result: WebDrinkSearchResult,
+  options?: { cachedImageDataUrl?: string }
+): Drink {
   const instructions = splitInstructions(result.instructions);
   const garnish = inferGarnish(result);
 
@@ -75,6 +78,7 @@ export function webResultToDrink(result: WebDrinkSearchResult): Drink {
     ingredients: result.ingredients,
     method: instructions,
     artwork: inferArtwork(result, garnish.token),
+    cachedImageDataUrl: options?.cachedImageDataUrl,
     imageUrl: result.imageUrl,
   };
 }

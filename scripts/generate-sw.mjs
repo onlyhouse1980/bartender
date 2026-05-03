@@ -36,8 +36,11 @@ const version = String(Date.now());
 const precacheJson = JSON.stringify(precacheFiles, null, 2);
 
 const serviceWorkerSource = `const CACHE_NAME = 'barstart-de-${version}';
+const REMOTE_IMAGE_CACHE = 'barstart-de-remote-images-v1';
+const REMOTE_API_CACHE = 'barstart-de-remote-api-v1';
 const PRECACHE_URLS = ${precacheJson};
 const OFFLINE_FALLBACK = '/index.html';
+const COCKTAIL_DB_HOSTNAMES = new Set(['www.thecocktaildb.com', 'thecocktaildb.com']);
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -50,11 +53,52 @@ self.addEventListener('activate', (event) => {
     caches
       .keys()
       .then((keys) =>
-        Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
+        Promise.all(
+          keys
+            .filter(
+              (key) =>
+                key !== CACHE_NAME && key !== REMOTE_IMAGE_CACHE && key !== REMOTE_API_CACHE
+            )
+            .map((key) => caches.delete(key))
+        )
       )
       .then(() => self.clients.claim())
   );
 });
+
+async function cacheFirst(request, cacheName) {
+  const cachedResponse = await caches.match(request);
+  if (cachedResponse) {
+    return cachedResponse;
+  }
+
+  const networkResponse = await fetch(request);
+  if (networkResponse && (networkResponse.ok || networkResponse.type === 'opaque')) {
+    const responseClone = networkResponse.clone();
+    caches.open(cacheName).then((cache) => cache.put(request, responseClone));
+  }
+
+  return networkResponse;
+}
+
+async function networkFirst(request, cacheName) {
+  try {
+    const networkResponse = await fetch(request);
+    if (networkResponse && (networkResponse.ok || networkResponse.type === 'opaque')) {
+      const responseClone = networkResponse.clone();
+      caches.open(cacheName).then((cache) => cache.put(request, responseClone));
+    }
+
+    return networkResponse;
+  } catch {
+    const cachedResponse = await caches.match(request);
+    if (cachedResponse) {
+      return cachedResponse;
+    }
+
+    throw new Error('Network unavailable');
+  }
+}
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;
@@ -64,6 +108,18 @@ self.addEventListener('fetch', (event) => {
   }
 
   const url = new URL(request.url);
+
+  if (COCKTAIL_DB_HOSTNAMES.has(url.hostname)) {
+    if (url.pathname.includes('/images/media/drink/')) {
+      event.respondWith(cacheFirst(request, REMOTE_IMAGE_CACHE));
+      return;
+    }
+
+    if (url.pathname.includes('/api/json/')) {
+      event.respondWith(networkFirst(request, REMOTE_API_CACHE));
+      return;
+    }
+  }
 
   if (url.origin !== self.location.origin) {
     return;
