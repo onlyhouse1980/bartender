@@ -1,4 +1,4 @@
-import { Image, type ImageSourcePropType } from 'react-native';
+import { Image, Platform } from 'react-native';
 
 import type { GlasswareIllustration } from '../data/bartending';
 
@@ -8,14 +8,14 @@ type GlasswareVisualProps = {
   height?: number;
 };
 
-const GLASSWARE_IMAGES: Record<GlasswareIllustration, ImageSourcePropType> = {
-  coupe: require('../../assets/glassware-cutout/coupe-glass.png'),
-  highball: require('../../assets/glassware-cutout/high-ball.png'),
-  hurricane: require('../../assets/glassware-cutout/hurricane-glass.png'),
-  martini: require('../../assets/glassware-cutout/martini-glass.png'),
-  mule: require('../../assets/glassware-cutout/mule-becher.png'),
-  rocks: require('../../assets/glassware-cutout/rocks-glass.png'),
-  wine: require('../../assets/glassware-cutout/wine-glass.png'),
+const GLASSWARE_IMAGE_URIS: Record<GlasswareIllustration, string> = {
+  coupe: '/glassware-cutout/coupe-glass.png',
+  highball: '/glassware-cutout/high-ball.png',
+  hurricane: '/glassware-cutout/hurricane-glass.png',
+  martini: '/glassware-cutout/martini-glass.png',
+  mule: '/glassware-cutout/mule-becher.png',
+  rocks: '/glassware-cutout/rocks-glass.png',
+  wine: '/glassware-cutout/wine-glass.png',
 };
 
 export function GlasswareVisual({
@@ -23,9 +23,25 @@ export function GlasswareVisual({
   width = 184,
   height = 184,
 }: GlasswareVisualProps) {
+  if (Platform.OS === 'web') {
+    return (
+      <img
+        src={GLASSWARE_IMAGE_URIS[kind]}
+        alt=""
+        style={{
+          width,
+          height,
+          borderRadius: 18,
+          objectFit: 'contain',
+          display: 'block',
+        }}
+      />
+    );
+  }
+
   return (
     <Image
-      source={GLASSWARE_IMAGES[kind]}
+      source={{ uri: GLASSWARE_IMAGE_URIS[kind] }}
       style={{
         width,
         height,

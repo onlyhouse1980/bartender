@@ -1,6 +1,5 @@
-import { LinearGradient } from 'expo-linear-gradient';
-import { StatusBar } from 'expo-status-bar';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ActivityIndicator,
   Animated,
@@ -99,6 +98,61 @@ type ImagePreviewTriggerProps = {
   stopPropagation?: boolean;
 };
 
+type PreviewTriggerNode = {
+  measureInWindow?: (
+    callback: (x: number, y: number, width: number, height: number) => void
+  ) => void;
+  getBoundingClientRect?: () => {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  };
+};
+
+function createFallbackPreviewFrame(): ImagePreviewFrame {
+  if (typeof window === 'undefined') {
+    return {
+      x: 24,
+      y: 120,
+      width: 160,
+      height: 160,
+    };
+  }
+
+  const size = Math.min(Math.max(window.innerWidth * 0.32, 132), 180);
+
+  return {
+    x: (window.innerWidth - size) / 2,
+    y: Math.max(108, window.innerHeight * 0.24),
+    width: size,
+    height: size,
+  };
+}
+
+function toPreviewFrame(candidate: {
+  left?: number;
+  top?: number;
+  width?: number;
+  height?: number;
+  x?: number;
+  y?: number;
+}): ImagePreviewFrame | null {
+  const width = candidate.width ?? 0;
+  const height = candidate.height ?? 0;
+
+  if (width <= 0 || height <= 0) {
+    return null;
+  }
+
+  return {
+    x: candidate.x ?? candidate.left ?? 0,
+    y: candidate.y ?? candidate.top ?? 0,
+    width,
+    height,
+  };
+}
+
 function ImagePreviewTrigger({
   children,
   onOpen,
@@ -106,25 +160,32 @@ function ImagePreviewTrigger({
   pressedStyle,
   stopPropagation = false,
 }: ImagePreviewTriggerProps) {
-  const triggerRef = useRef<View | null>(null);
+  const triggerRef = useRef<PreviewTriggerNode | null>(null);
 
   function handlePress(event: GestureResponderEvent) {
     if (stopPropagation) {
       event.stopPropagation();
     }
 
-    triggerRef.current?.measureInWindow((x, y, width, height) => {
-      onOpen({
-        x,
-        y,
-        width,
-        height,
+    const triggerNode = triggerRef.current;
+
+    if (triggerNode?.measureInWindow) {
+      triggerNode.measureInWindow((x, y, width, height) => {
+        onOpen(toPreviewFrame({ x, y, width, height }) ?? createFallbackPreviewFrame());
       });
-    });
+      return;
+    }
+
+    const domFrame =
+      typeof triggerNode?.getBoundingClientRect === 'function'
+        ? toPreviewFrame(triggerNode.getBoundingClientRect())
+        : null;
+
+    onOpen(domFrame ?? createFallbackPreviewFrame());
   }
 
   return (
-    <View ref={triggerRef} collapsable={false}>
+    <View ref={triggerRef as never} collapsable={false}>
       <Pressable onPress={handlePress} style={({ pressed }) => [style, pressed && pressedStyle]}>
         {children}
       </Pressable>
@@ -141,12 +202,31 @@ function StatTile({ label, value }: { label: string; value: string }) {
   );
 }
 
+const AD_POSTER_SRC = '/ads/adspace.png'
+
+function AdvertiseCard({
+  onPress,
+  compact = false,
+  narrow = false,
+  width,
+}: {
+  onPress: () => void;
+  compact?: boolean;
+  narrow?: boolean;
+  width?: number;
+}) {
+  return null;
+}
+
 export default function App() {
   const scrollViewRef = useRef<ScrollView | null>(null);
   const librarySectionOffsetRef = useRef(0);
   const quizSectionOffsetRef = useRef(0);
   const previewAnimation = useRef(new Animated.Value(0)).current;
   const quizPoolDrinksRef = useRef<Drink[]>([]);
+  const webFrameRef = useRef<HTMLElement | null>(null);
+  const pendingOriginRef = useRef<ImagePreviewFrame | null>(null);
+  const targetFrameForAnimRef = useRef<ImagePreviewFrame>({ x: 0, y: 0, width: 0, height: 0 });
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
 
   const [activeView, setActiveView] = useState<AppView>('library');
@@ -177,6 +257,8 @@ export default function App() {
   const [imagePreview, setImagePreview] = useState<ImagePreview | null>(null);
   const [imagePreviewOriginFrame, setImagePreviewOriginFrame] = useState<ImagePreviewFrame | null>(null);
   const cheatTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previewDismissEnabledRef = useRef(false);
+  const previewDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setImportedDrinks(loadImportedDrinks());
@@ -187,10 +269,11 @@ export default function App() {
   useEffect(() => {
     return () => {
       clearCheatTimer();
+      clearPreviewDismissTimer();
     };
   }, []);
 
-  const allDrinks = [...importedDrinks, ...drinks];
+  const allDrinks = useMemo(() => [...importedDrinks, ...drinks], [importedDrinks]);
   const categories = ['Alle', ...new Set(allDrinks.map((drink) => drink.category))];
   const normalizedLibraryQuery = normalizeQuizLabel(librarySearchQuery);
   const visibleDrinks = allDrinks.filter((drink) => {
@@ -246,12 +329,29 @@ export default function App() {
     hasIngredientSelection &&
     (!serviceMode || (!!selectedGarnish && selectedBuildSteps.length > 0));
   const previewVisualSize = Math.min(viewportWidth - 28, viewportHeight - 220, 680);
+  const rightRailAdWidth = 0;
+  const narrowAdLayout = false;
+  const useDesktopAdRail = false;
+  const useMobileAdLayout = false;
+  const stackedAdWidth = 0;
+  const showMidPageAds = false;
+  const contentViewportWidth = viewportWidth;
+  const libraryWideGrid = contentViewportWidth >= 960;
+  const libraryTopSplitLayout = false;
+  const libraryTopMainWidth = Math.max(320, contentViewportWidth - 36);
+  const glassGridColumns = libraryWideGrid
+    ? Math.max(2, Math.min(5, Math.floor((libraryTopMainWidth + 12) / 192)))
+    : 0;
+  const glassGridCardWidth = libraryWideGrid
+    ? Math.floor((libraryTopMainWidth - (glassGridColumns - 1) * 12) / glassGridColumns)
+    : 220;
   const previewTargetFrame = {
     x: (viewportWidth - previewVisualSize) / 2,
     y: Math.max(108, (viewportHeight - previewVisualSize) / 2 + 12),
     width: previewVisualSize,
     height: previewVisualSize,
   };
+  targetFrameForAnimRef.current = previewTargetFrame;
   const previewSourceFrame = resolvePreviewFrame(
     imagePreviewOriginFrame,
     viewportWidth,
@@ -323,7 +423,7 @@ export default function App() {
     }
 
     setBuildStepOptions(shuffleArray(currentDrink.method));
-  }, [currentDrink?.id]);
+  }, [currentDrink]);
 
   useEffect(() => {
     clearCheatTimer();
@@ -335,6 +435,13 @@ export default function App() {
     if (cheatTimerRef.current) {
       clearTimeout(cheatTimerRef.current);
       cheatTimerRef.current = null;
+    }
+  }
+
+  function clearPreviewDismissTimer() {
+    if (previewDismissTimerRef.current) {
+      clearTimeout(previewDismissTimerRef.current);
+      previewDismissTimerRef.current = null;
     }
   }
 
@@ -625,13 +732,33 @@ export default function App() {
     setActiveLegalPage(null);
   }
 
+  function handleWebFrameRef(el: HTMLElement | null) {
+    webFrameRef.current = el;
+    if (!el || !pendingOriginRef.current) return;
+    const origin = pendingOriginRef.current;
+    pendingOriginRef.current = null;
+    const target = targetFrameForAnimRef.current;
+    const sx = origin.width / target.width;
+    const sy = origin.height / target.height;
+    const dx = (origin.x + origin.width / 2) - (target.x + target.width / 2);
+    const dy = (origin.y + origin.height / 2) - (target.y + target.height / 2);
+    el.style.transition = 'none';
+    el.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        el.style.transition = 'transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1)';
+        el.style.transform = '';
+      });
+    });
+  }
+
   function animateImagePreview(toValue: 0 | 1, onComplete?: () => void) {
     previewAnimation.stopAnimation();
     Animated.timing(previewAnimation, {
       toValue,
-      duration: toValue === 1 ? 280 : 220,
-      easing: toValue === 1 ? Easing.out(Easing.cubic) : Easing.inOut(Easing.cubic),
-      useNativeDriver: true,
+      duration: toValue === 1 ? 320 : 240,
+      easing: toValue === 1 ? Easing.out(Easing.back(1.4)) : Easing.inOut(Easing.cubic),
+      useNativeDriver: false,
     }).start(({ finished }) => {
       if (finished) {
         onComplete?.();
@@ -640,14 +767,25 @@ export default function App() {
   }
 
   function showImagePreview(preview: ImagePreview, originFrame: ImagePreviewFrame) {
+    clearPreviewDismissTimer();
+    previewDismissEnabledRef.current = false;
     setImagePreview(preview);
     setImagePreviewOriginFrame(originFrame);
     setIsImagePreviewVisible(true);
     previewAnimation.setValue(0);
 
+    if (Platform.OS === 'web') {
+      pendingOriginRef.current = originFrame;
+    }
+
     requestAnimationFrame(() => {
       animateImagePreview(1);
     });
+
+    previewDismissTimerRef.current = setTimeout(() => {
+      previewDismissEnabledRef.current = true;
+      previewDismissTimerRef.current = null;
+    }, 180);
   }
 
   function openDrinkPreview(drink: Drink, originFrame: ImagePreviewFrame) {
@@ -687,8 +825,35 @@ export default function App() {
     );
   }
 
-  function closeImagePreview() {
+  function closeImagePreview(force = false) {
     if (!isImagePreviewVisible) {
+      return;
+    }
+
+    if (!force && !previewDismissEnabledRef.current) {
+      return;
+    }
+
+    clearPreviewDismissTimer();
+    previewDismissEnabledRef.current = false;
+
+    if (Platform.OS === 'web') {
+      const el = webFrameRef.current;
+      const origin = imagePreviewOriginFrame;
+      const target = targetFrameForAnimRef.current;
+      if (!force && el && origin) {
+        const sx = origin.width / target.width;
+        const sy = origin.height / target.height;
+        const dx = (origin.x + origin.width / 2) - (target.x + target.width / 2);
+        const dy = (origin.y + origin.height / 2) - (target.y + target.height / 2);
+        el.style.transition = 'transform 260ms cubic-bezier(0.55, 0, 1, 0.45)';
+        el.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`;
+      }
+      animateImagePreview(0, () => {
+        setIsImagePreviewVisible(false);
+        setImagePreview(null);
+        setImagePreviewOriginFrame(null);
+      });
       return;
     }
 
@@ -699,25 +864,122 @@ export default function App() {
     });
   }
 
+  const previewOverlayContent =
+    isImagePreviewVisible && imagePreview ? (
+      <View style={styles.previewOverlay}>
+        <Animated.View
+          style={[styles.previewBackdropShade, { opacity: previewBackdropOpacity }]}
+        />
+        <Pressable style={styles.previewBackdrop} onPress={() => closeImagePreview()} />
+        <SafeAreaView style={styles.previewSafeArea}>
+          <Animated.View
+            style={[
+              styles.previewHeader,
+              {
+                opacity: previewHeaderOpacity,
+                transform: [{ translateY: previewHeaderTranslateY }],
+              },
+            ]}
+          >
+            <View style={styles.previewHeaderBody}>
+              <Text style={styles.previewTitle} numberOfLines={2}>
+                {imagePreview.title}
+              </Text>
+              <Pressable
+                onPress={() => closeImagePreview(true)}
+                style={({ pressed }) => [
+                  styles.previewCloseButton,
+                  pressed && styles.previewCloseButtonPressed,
+                ]}
+              >
+                <Text style={styles.previewCloseButtonText}>Schliessen</Text>
+              </Pressable>
+            </View>
+          </Animated.View>
+
+          {Platform.OS === 'web' ? (
+            <View
+              ref={(el: unknown) => handleWebFrameRef(el as HTMLElement | null)}
+              style={[
+                styles.previewAnimatedFrame,
+                {
+                  left: previewTargetFrame.x,
+                  top: previewTargetFrame.y,
+                  width: previewTargetFrame.width,
+                  height: previewTargetFrame.height,
+                },
+              ]}
+            >
+              {imagePreview.kind === 'glass' ? (
+                <GlasswareVisual
+                  kind={imagePreview.illustration}
+                  width={previewVisualSize}
+                  height={previewVisualSize}
+                />
+              ) : null}
+              {imagePreview.kind === 'drink' ? (
+                <DrinkVisual drink={imagePreview.drink} size={previewVisualSize} resizeMode="contain" />
+              ) : null}
+              {imagePreview.kind === 'remote' ? (
+                <img
+                  src={imagePreview.uri}
+                  alt=""
+                  style={{ width: previewVisualSize, height: previewVisualSize, objectFit: 'contain', display: 'block' }}
+                />
+              ) : null}
+            </View>
+          ) : (
+            <Animated.View
+              style={[
+                styles.previewAnimatedFrame,
+                {
+                  left: previewTargetFrame.x,
+                  top: previewTargetFrame.y,
+                  width: previewTargetFrame.width,
+                  height: previewTargetFrame.height,
+                  transform: [
+                    { translateX: previewTranslateX },
+                    { translateY: previewTranslateY },
+                    { scaleX: previewScaleX },
+                    { scaleY: previewScaleY },
+                  ],
+                },
+              ]}
+            >
+              {imagePreview.kind === 'glass' ? (
+                <GlasswareVisual
+                  kind={imagePreview.illustration}
+                  width={previewVisualSize}
+                  height={previewVisualSize}
+                />
+              ) : null}
+              {imagePreview.kind === 'drink' ? (
+                <DrinkVisual drink={imagePreview.drink} size={previewVisualSize} resizeMode="contain" />
+              ) : null}
+              {imagePreview.kind === 'remote' ? (
+                <Image source={{ uri: imagePreview.uri }} style={styles.previewImage} resizeMode="contain" />
+              ) : null}
+            </Animated.View>
+          )}
+        </SafeAreaView>
+      </View>
+    ) : null;
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="light" />
-      <ScrollView
-        ref={scrollViewRef}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        <LinearGradient
-          colors={['#0A1517', '#41251F']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.hero}
+      <View style={[styles.pageShell, useDesktopAdRail && styles.pageShellWithRail]}>
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.pageMain}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
         >
+        <View style={styles.hero}>
           <Text style={styles.heroTitle}>BarStart DE</Text>
           <Text style={styles.heroSubtitle}>
             Drinks trainieren, Service festigen und Rezepte auch im Bar-Alltag schnell finden.
           </Text>
-        </LinearGradient>
+        </View>
 
         <View style={styles.viewSwitch}>
           {APP_VIEWS.map((view) => {
@@ -743,6 +1005,16 @@ export default function App() {
             );
           })}
         </View>
+
+        {!activeLegalPage && !useDesktopAdRail && (useMobileAdLayout || activeView !== 'library') ? (
+          <View style={styles.adSectionWrap}>
+            <AdvertiseCard
+              onPress={handleEmailPress}
+              width={useMobileAdLayout ? stackedAdWidth : rightRailAdWidth}
+              narrow={narrowAdLayout}
+            />
+          </View>
+        ) : null}
 
         {activeLegalPage ? (
           <View style={styles.section}>
@@ -843,32 +1115,81 @@ export default function App() {
         ) : activeView === 'library' ? (
           <>
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Glaswaren-Spickzettel</Text>
-              <Text style={styles.sectionIntro}>
-                Wenn sich das Glas ändert, ändert sich auch der Drink. Tippe auf ein Bild, um es
-                groß zu sehen.
-              </Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.glasswareRow}
+              <View
+                style={[
+                  styles.libraryTopRow,
+                  libraryTopSplitLayout && styles.libraryTopRowSplit,
+                ]}
               >
-                {glasswareGuide.map((item) => (
-                  <View key={item.name} style={styles.glassCard}>
-                    <ImagePreviewTrigger
-                      onOpen={(originFrame) =>
-                        openGlassPreview(item.illustration, item.name, originFrame)
-                      }
-                      style={[styles.imagePreviewButton, styles.glassVisualWrap]}
-                      pressedStyle={styles.imagePreviewButtonPressed}
+                <View style={styles.libraryTopMain}>
+                  <Text style={styles.sectionTitle}>Glaswaren-Spickzettel</Text>
+                  <Text style={styles.sectionIntro}>
+                    Wenn sich das Glas ändert, ändert sich auch der Drink. Tippe auf ein Bild, um
+                    es groß zu sehen.
+                  </Text>
+
+                  {libraryWideGrid ? (
+                    <View style={styles.glasswareGrid}>
+                      {glasswareGuide.map((item) => (
+                        <View
+                          key={item.name}
+                          style={[styles.glassCard, { width: glassGridCardWidth }]}
+                        >
+                          <ImagePreviewTrigger
+                            onOpen={(originFrame) =>
+                              openGlassPreview(item.illustration, item.name, originFrame)
+                            }
+                            style={[styles.imagePreviewButton, styles.glassVisualWrap]}
+                            pressedStyle={styles.imagePreviewButtonPressed}
+                          >
+                            <GlasswareVisual kind={item.illustration} />
+                          </ImagePreviewTrigger>
+                          <Text style={styles.glassCardTitle}>{item.name}</Text>
+                          <Text style={styles.glassCardBody}>{item.use}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  ) : (
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.glasswareRow}
                     >
-                      <GlasswareVisual kind={item.illustration} />
-                    </ImagePreviewTrigger>
-                    <Text style={styles.glassCardTitle}>{item.name}</Text>
-                    <Text style={styles.glassCardBody}>{item.use}</Text>
+                      {glasswareGuide.map((item) => (
+                        <View key={item.name} style={styles.glassCard}>
+                          <ImagePreviewTrigger
+                            onOpen={(originFrame) =>
+                              openGlassPreview(item.illustration, item.name, originFrame)
+                            }
+                            style={[styles.imagePreviewButton, styles.glassVisualWrap]}
+                            pressedStyle={styles.imagePreviewButtonPressed}
+                          >
+                            <GlasswareVisual kind={item.illustration} />
+                          </ImagePreviewTrigger>
+                          <Text style={styles.glassCardTitle}>{item.name}</Text>
+                          <Text style={styles.glassCardBody}>{item.use}</Text>
+                        </View>
+                      ))}
+                    </ScrollView>
+                  )}
+                </View>
+
+                {showMidPageAds ? (
+                  <View
+                    style={[
+                      styles.libraryTopRail,
+                      libraryTopSplitLayout && styles.libraryTopRailSplit,
+                      libraryTopSplitLayout && { width: rightRailAdWidth },
+                    ]}
+                  >
+                    <AdvertiseCard
+                      onPress={handleEmailPress}
+                      width={rightRailAdWidth}
+                      narrow={narrowAdLayout}
+                    />
                   </View>
-                ))}
-              </ScrollView>
+                ) : null}
+              </View>
             </View>
 
             <View style={styles.section}>
@@ -891,7 +1212,7 @@ export default function App() {
                     void handleSearch();
                   }}
                   placeholder="Zum Beispiel: Paper Plane"
-                  placeholderTextColor="#7F9590"
+                  placeholderTextColor="#8070A0"
                   style={styles.searchInput}
                   returnKeyType="search"
                   autoCapitalize="words"
@@ -924,7 +1245,7 @@ export default function App() {
                   <Text style={styles.searchMessage}>{searchMessage}</Text>
                 ) : null}
                 {isSearching ? (
-                  <ActivityIndicator color="#62C9B7" style={styles.searchSpinner} />
+                  <ActivityIndicator color="#00E5FF" style={styles.searchSpinner} />
                 ) : null}
 
                 {searchResults.length ? (
@@ -1010,6 +1331,16 @@ export default function App() {
               </View>
             </View>
 
+            {showMidPageAds ? (
+              <View style={styles.adInlineWrap}>
+                <AdvertiseCard
+                  onPress={handleEmailPress}
+                  width={rightRailAdWidth}
+                  narrow={narrowAdLayout}
+                />
+              </View>
+            ) : null}
+
             <View
               style={styles.section}
               onLayout={(event) => {
@@ -1027,7 +1358,7 @@ export default function App() {
                   value={librarySearchQuery}
                   onChangeText={setLibrarySearchQuery}
                   placeholder="Bibliothek durchsuchen: Name, Zutat, Spirituose, Glas"
-                  placeholderTextColor="#7F9590"
+                  placeholderTextColor="#8070A0"
                   style={styles.searchInput}
                   autoCapitalize="words"
                   autoCorrect={false}
@@ -1199,6 +1530,16 @@ export default function App() {
                 ))}
               </ScrollView>
 
+              {showMidPageAds ? (
+                <View style={styles.adInlineWrap}>
+                  <AdvertiseCard
+                    onPress={handleEmailPress}
+                    width={rightRailAdWidth}
+                    narrow={narrowAdLayout}
+                  />
+                </View>
+              ) : null}
+
               <View style={styles.basicsList}>
                 {barBasicsModules.map((module) => (
                   <View key={module.title} style={styles.basicsCard}>
@@ -1330,6 +1671,16 @@ export default function App() {
                 )}
               </View>
 
+              {showMidPageAds ? (
+                <View style={styles.adInlineWrap}>
+                  <AdvertiseCard
+                    onPress={handleEmailPress}
+                    width={rightRailAdWidth}
+                    narrow={narrowAdLayout}
+                  />
+                </View>
+              ) : null}
+
               {currentDrink ? (
                 <>
                   <View style={styles.quizCard}>
@@ -1396,7 +1747,7 @@ export default function App() {
                           ? 'Rezeptposition oder Menge suchen'
                           : 'Zutat suchen'
                       }
-                      placeholderTextColor="#7F9590"
+                      placeholderTextColor="#8070A0"
                       style={[styles.searchInput, quizLocked && styles.quizInputDisabled]}
                       editable={!quizLocked}
                       autoCapitalize="words"
@@ -1708,105 +2059,76 @@ export default function App() {
         )}
 
         {!activeLegalPage ? (
-          <View style={styles.legalFooterLinks}>
-            <Pressable
-              onPress={() => openLegalPage('impressum')}
-              style={({ pressed }) => [styles.legalFooterLinkWrap, pressed && styles.legalLinkPressed]}
-            >
-              <Text style={styles.legalFooterLink}>Impressum</Text>
-            </Pressable>
-            <Text style={styles.legalFooterDivider}>·</Text>
-            <Pressable
-              onPress={() => openLegalPage('privacy')}
-              style={({ pressed }) => [styles.legalFooterLinkWrap, pressed && styles.legalLinkPressed]}
-            >
-              <Text style={styles.legalFooterLink}>Datenschutz</Text>
-            </Pressable>
+          <>
+            {!useDesktopAdRail ? (
+              <View style={styles.footerAdWrap}>
+                <AdvertiseCard
+                  onPress={handleEmailPress}
+                  compact
+                  width={useMobileAdLayout ? stackedAdWidth : rightRailAdWidth}
+                  narrow={narrowAdLayout}
+                />
+              </View>
+            ) : null}
+            <View style={styles.legalFooterLinks}>
+              <Pressable
+                onPress={() => openLegalPage('impressum')}
+                style={({ pressed }) => [styles.legalFooterLinkWrap, pressed && styles.legalLinkPressed]}
+              >
+                <Text style={styles.legalFooterLink}>Impressum</Text>
+              </Pressable>
+              <Text style={styles.legalFooterDivider}>·</Text>
+              <Pressable
+                onPress={() => openLegalPage('privacy')}
+                style={({ pressed }) => [styles.legalFooterLinkWrap, pressed && styles.legalLinkPressed]}
+              >
+                <Text style={styles.legalFooterLink}>Datenschutz</Text>
+              </Pressable>
+            </View>
+          </>
+        ) : null}
+        </ScrollView>
+
+        {useDesktopAdRail ? (
+          <View style={[styles.desktopAdRail, { width: rightRailAdWidth }]}>
+            <View style={styles.desktopAdRailStack}>
+              <AdvertiseCard
+                onPress={handleEmailPress}
+                width={rightRailAdWidth}
+                narrow={narrowAdLayout}
+              />
+              <AdvertiseCard
+                onPress={handleEmailPress}
+                compact
+                width={rightRailAdWidth}
+                narrow={narrowAdLayout}
+              />
+              <AdvertiseCard
+                onPress={handleEmailPress}
+                compact
+                width={rightRailAdWidth}
+                narrow={narrowAdLayout}
+              />
+            </View>
           </View>
         ) : null}
-      </ScrollView>
+      </View>
 
-      <Modal
-        visible={isImagePreviewVisible}
-        animationType="none"
-        transparent
-        statusBarTranslucent
-        onRequestClose={closeImagePreview}
-      >
-        <View style={styles.previewOverlay}>
-          <Animated.View
-            pointerEvents="none"
-            style={[styles.previewBackdropShade, { opacity: previewBackdropOpacity }]}
-          />
-          <Pressable style={styles.previewBackdrop} onPress={closeImagePreview} />
-          <SafeAreaView pointerEvents="box-none" style={styles.previewSafeArea}>
-            <Animated.View
-              style={[
-                styles.previewHeader,
-                {
-                  opacity: previewHeaderOpacity,
-                  transform: [{ translateY: previewHeaderTranslateY }],
-                },
-              ]}
+      {Platform.OS === 'web'
+        ? previewOverlayContent && typeof document !== 'undefined'
+          ? createPortal(previewOverlayContent, document.body)
+          : null
+        : (
+            <Modal
+              visible={isImagePreviewVisible}
+              animationType="none"
+              transparent
+              statusBarTranslucent
+              onRequestClose={() => closeImagePreview(true)}
             >
-              <View style={styles.previewHeaderBody}>
-                <Text style={styles.previewTitle} numberOfLines={2}>
-                  {imagePreview?.title}
-                </Text>
-                <Pressable
-                  onPress={closeImagePreview}
-                  style={({ pressed }) => [
-                    styles.previewCloseButton,
-                    pressed && styles.previewCloseButtonPressed,
-                  ]}
-                >
-                  <Text style={styles.previewCloseButtonText}>Schliessen</Text>
-                </Pressable>
-              </View>
-            </Animated.View>
-
-            {imagePreview ? (
-              <Animated.View
-                style={[
-                  styles.previewAnimatedFrame,
-                  {
-                    left: previewTargetFrame.x,
-                    top: previewTargetFrame.y,
-                    width: previewTargetFrame.width,
-                    height: previewTargetFrame.height,
-                    transform: [
-                      { translateX: previewTranslateX },
-                      { translateY: previewTranslateY },
-                      { scaleX: previewScaleX },
-                      { scaleY: previewScaleY },
-                    ],
-                  },
-                ]}
-              >
-                {imagePreview.kind === 'glass' ? (
-                  <GlasswareVisual
-                    kind={imagePreview.illustration}
-                    width={previewVisualSize}
-                    height={previewVisualSize}
-                  />
-                ) : null}
-
-                {imagePreview.kind === 'drink' ? (
-                  <DrinkVisual
-                    drink={imagePreview.drink}
-                    size={previewVisualSize}
-                    resizeMode="contain"
-                  />
-                ) : null}
-
-                {imagePreview.kind === 'remote' ? (
-                  <Image source={{ uri: imagePreview.uri }} style={styles.previewImage} resizeMode="contain" />
-                ) : null}
-              </Animated.View>
-            ) : null}
-          </SafeAreaView>
-        </View>
-      </Modal>
+              {previewOverlayContent}
+            </Modal>
+          )}
     </SafeAreaView>
   );
 }
@@ -1885,14 +2207,6 @@ function getExpectedIngredientLabels(drink: Drink, mode: QuizMode) {
 
 function formatIngredientLabel(amount: string, item: string) {
   return amount ? `${amount} ${item}` : item;
-}
-
-function buildQuizPool(drinkPool: Drink[], pool: QuizPool, progress: QuizProgress) {
-  if (pool === 'all') {
-    return drinkPool;
-  }
-
-  return drinkPool.filter((drink) => hasOpenMistake(getDrinkProgress(progress, drink.id)));
 }
 
 function pickRandomDrinkId(drinkPool: Drink[], excludedId: string | null) {
@@ -2090,7 +2404,18 @@ function formatEuro(amount: number) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0B1315',
+    backgroundColor: '#08000F',
+  },
+  pageShell: {
+    flex: 1,
+  },
+  pageShellWithRail: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+  },
+  pageMain: {
+    flex: 1,
+    minWidth: 0,
   },
   content: {
     paddingBottom: 36,
@@ -2101,22 +2426,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 24,
     borderRadius: 28,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.32,
-    shadowRadius: 18,
-    elevation: 10,
+    backgroundColor: '#0D0A1A',
+    ...Platform.select({
+      web: {
+        backgroundImage: 'linear-gradient(135deg, #0D0A1A 0%, #3D0066 55%, #220033 100%)' as never,
+        boxShadow: '0px 14px 40px rgba(61, 0, 102, 0.7), 0px 0px 80px rgba(204, 0, 85, 0.12)' as never,
+      },
+      default: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 14 },
+        shadowOpacity: 0.32,
+        shadowRadius: 18,
+        elevation: 10,
+      },
+    }),
   },
   heroTitle: {
-    color: '#FFF8EE',
+    color: '#F5F0FF',
     fontSize: 37,
     lineHeight: 42,
     fontWeight: '700',
+    letterSpacing: -0.5,
     fontFamily: Platform.select({ ios: 'Georgia', default: undefined }),
+    ...Platform.select({
+      web: {
+        textShadow: '0 0 30px rgba(204, 0, 85, 0.4)' as never,
+      },
+      default: {},
+    }),
   },
   heroSubtitle: {
     marginTop: 10,
-    color: '#D6E0DD',
+    color: '#C8BADA',
     fontSize: 15,
     lineHeight: 22,
   },
@@ -2127,42 +2468,512 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     marginTop: 16,
   },
+  adSectionWrap: {
+    marginTop: 5,
+    marginBottom: 5,
+    paddingHorizontal: 18,
+  },
+  adInlineWrap: {
+    marginTop: 5,
+    marginBottom: 5,
+  },
+  adCard: {
+    borderRadius: 26,
+    backgroundColor: '#1A0050',
+    borderWidth: 0,
+    overflow: 'hidden',
+    ...Platform.select({
+      web: {
+        boxShadow: '0px 10px 24px rgba(15, 0, 45, 0.28)' as never,
+      },
+      default: {
+        shadowColor: '#150028',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.28,
+        shadowRadius: 24,
+        elevation: 5,
+      },
+    }),
+  },
+  adCardCompact: {
+    borderRadius: 22,
+  },
+  adCardNarrow: {
+    maxWidth: '100%',
+  },
+  adCardPressed: {
+    opacity: 0.94,
+  },
+  adImage: {
+    width: '100%',
+    aspectRatio: 1.5,
+  },
+  adImageCompact: {
+    aspectRatio: 1.5,
+  },
+  adDisclosureBadge: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: 'rgba(8, 0, 20, 0.82)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.28)',
+  },
+  adDisclosureBadgeCompact: {
+    top: 8,
+    left: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  adDisclosureText: {
+    color: '#F5F0FF',
+    fontSize: 11,
+    lineHeight: 12,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  adCardInner: {
+    padding: 14,
+  },
+  adDashedFrame: {
+    borderRadius: 20,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: '#9B5EFF',
+    paddingHorizontal: 22,
+    paddingVertical: 18,
+    backgroundColor: '#FAF5FF',
+  },
+  adDashedFrameNarrow: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  adContentRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    justifyContent: 'space-between',
+    gap: 18,
+    flexWrap: 'wrap',
+  },
+  adContentRowNarrow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    flexWrap: 'nowrap',
+  },
+  adLeftColumn: {
+    flex: 1,
+    minWidth: 220,
+    maxWidth: 500,
+  },
+  adLeftColumnNarrow: {
+    flex: 1,
+    minWidth: 0,
+    maxWidth: '100%',
+  },
+  adHeadline: {
+    color: '#1A0033',
+    fontSize: 54,
+    lineHeight: 50,
+    fontWeight: '900',
+    letterSpacing: -1.5,
+  },
+  adHeadlineCompact: {
+    fontSize: 28,
+    lineHeight: 27,
+  },
+  adDividerRow: {
+    marginTop: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    maxWidth: 380,
+  },
+  adDividerRowNarrow: {
+    marginTop: 8,
+    gap: 8,
+    maxWidth: 180,
+  },
+  adDividerLine: {
+    flex: 1,
+    height: 3,
+    borderRadius: 999,
+    backgroundColor: '#9933FF',
+    opacity: 0.86,
+  },
+  adDividerStar: {
+    color: '#7722CC',
+    fontSize: 28,
+    lineHeight: 28,
+    fontWeight: '800',
+  },
+  adMessage: {
+    marginTop: 20,
+    color: '#2D0066',
+    fontSize: 24,
+    lineHeight: 34,
+    fontWeight: '500',
+    maxWidth: 420,
+  },
+  adMessageCompact: {
+    fontSize: 14,
+    lineHeight: 19,
+  },
+  adButton: {
+    marginTop: 20,
+    alignSelf: 'flex-start',
+    minHeight: 68,
+    borderRadius: 22,
+    paddingHorizontal: 22,
+    backgroundColor: '#7700CC',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    ...Platform.select({
+      web: {
+        boxShadow: '0px 8px 16px rgba(120, 0, 200, 0.22)' as never,
+      },
+      default: {
+        shadowColor: '#9933FF',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.22,
+        shadowRadius: 16,
+        elevation: 4,
+      },
+    }),
+  },
+  adButtonCompact: {
+    minHeight: 42,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+  },
+  adButtonNarrow: {
+    alignSelf: 'flex-start',
+    justifyContent: 'center',
+  },
+  adButtonIcon: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    lineHeight: 24,
+    fontWeight: '700',
+  },
+  adButtonIconNarrow: {
+    fontSize: 16,
+    lineHeight: 16,
+  },
+  adButtonText: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    lineHeight: 24,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  adButtonTextCompact: {
+    fontSize: 13,
+    lineHeight: 15,
+  },
+  adRightColumn: {
+    width: 330,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    position: 'relative',
+    minHeight: 260,
+  },
+  adRightColumnCompact: {
+    width: 250,
+    minHeight: 210,
+  },
+  adRightColumnNarrow: {
+    width: 110,
+    minHeight: 110,
+    alignItems: 'flex-end',
+  },
+  adBrowserCard: {
+    width: '100%',
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: '#9966FF',
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    ...Platform.select({
+      web: {
+        boxShadow: '0px 8px 18px rgba(153, 100, 255, 0.14)' as never,
+      },
+      default: {
+        shadowColor: '#9966FF',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.14,
+        shadowRadius: 18,
+        elevation: 3,
+      },
+    }),
+  },
+  adBrowserCardNarrow: {
+    padding: 8,
+    borderRadius: 14,
+  },
+  adBrowserTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  adBrowserTopRowNarrow: {
+    gap: 4,
+  },
+  adBrowserTabActive: {
+    width: 94,
+    height: 28,
+    borderRadius: 5,
+    backgroundColor: '#9966FF',
+  },
+  adBrowserTabActiveNarrow: {
+    width: 30,
+    height: 10,
+    borderRadius: 3,
+  },
+  adBrowserTab: {
+    flex: 1,
+    height: 24,
+    borderRadius: 5,
+    backgroundColor: '#EAE0FF',
+  },
+  adBrowserTabNarrow: {
+    height: 8,
+    borderRadius: 3,
+  },
+  adBrowserTabSmall: {
+    width: 80,
+    height: 24,
+    borderRadius: 5,
+    backgroundColor: '#EAE0FF',
+  },
+  adBrowserTabSmallNarrow: {
+    width: 24,
+    height: 8,
+    borderRadius: 3,
+  },
+  adBrowserHero: {
+    marginTop: 24,
+    borderRadius: 18,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: '#9966FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 28,
+    paddingHorizontal: 12,
+  },
+  adBrowserHeroNarrow: {
+    marginTop: 10,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+  },
+  adBrowserHeroText: {
+    color: '#BB88FF',
+    fontSize: 28,
+    lineHeight: 30,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  adBrowserHeroTextNarrow: {
+    fontSize: 15,
+    lineHeight: 16,
+  },
+  adBrowserBottomRow: {
+    marginTop: 20,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  adBrowserBottomRowNarrow: {
+    marginTop: 8,
+    gap: 6,
+  },
+  adBrowserTile: {
+    width: 72,
+    height: 58,
+    borderRadius: 8,
+    backgroundColor: '#E8D8FF',
+  },
+  adBrowserTileNarrow: {
+    width: 26,
+    height: 22,
+    borderRadius: 5,
+  },
+  adBrowserTextStack: {
+    flex: 1,
+    gap: 10,
+    paddingTop: 2,
+  },
+  adBrowserTextStackNarrow: {
+    gap: 4,
+    paddingTop: 0,
+  },
+  adBrowserLineLong: {
+    height: 14,
+    borderRadius: 999,
+    backgroundColor: '#E8D8FF',
+    width: '92%',
+  },
+  adBrowserLineMedium: {
+    height: 14,
+    borderRadius: 999,
+    backgroundColor: '#E8D8FF',
+    width: '86%',
+  },
+  adBrowserLineShort: {
+    height: 14,
+    borderRadius: 999,
+    backgroundColor: '#E8D8FF',
+    width: '70%',
+  },
+  adBrowserLineNarrow: {
+    height: 5,
+  },
+  adBrowserLineShortNarrow: {
+    height: 5,
+    width: '58%',
+  },
+  adBrowserFooterStack: {
+    marginTop: 18,
+    gap: 10,
+  },
+  adBrowserFooterStackNarrow: {
+    marginTop: 8,
+    gap: 4,
+  },
+  adBrowserLineFull: {
+    height: 14,
+    borderRadius: 999,
+    backgroundColor: '#E8D8FF',
+    width: '100%',
+  },
+  adBrowserSparkTop: {
+    position: 'absolute',
+    right: -8,
+    top: 6,
+    gap: 8,
+    alignItems: 'flex-end',
+  },
+  adBrowserSparkTopNarrow: {
+    right: -5,
+    top: 2,
+    gap: 4,
+  },
+  adBrowserSparkBottom: {
+    position: 'absolute',
+    right: 4,
+    bottom: 8,
+    gap: 8,
+    alignItems: 'flex-end',
+  },
+  adBrowserSparkBottomNarrow: {
+    right: 1,
+    bottom: 3,
+    gap: 4,
+  },
+  adBrowserSparkShort: {
+    width: 8,
+    height: 34,
+    borderRadius: 999,
+    backgroundColor: '#7722CC',
+    transform: [{ rotate: '0deg' }],
+  },
+  adBrowserSparkShortNarrow: {
+    width: 5,
+    height: 18,
+  },
+  adBrowserSparkLong: {
+    width: 8,
+    height: 44,
+    borderRadius: 999,
+    backgroundColor: '#7722CC',
+    transform: [{ rotate: '30deg' }],
+  },
+  adBrowserSparkLongNarrow: {
+    width: 5,
+    height: 24,
+  },
+  adBrowserSparkMedium: {
+    width: 8,
+    height: 30,
+    borderRadius: 999,
+    backgroundColor: '#7722CC',
+    transform: [{ rotate: '68deg' }],
+  },
+  adBrowserSparkMediumNarrow: {
+    width: 5,
+    height: 16,
+  },
   viewSwitchChip: {
     borderRadius: 999,
     paddingHorizontal: 18,
     paddingVertical: 11,
-    backgroundColor: '#132025',
+    backgroundColor: '#160C28',
     borderWidth: 1,
-    borderColor: '#284048',
+    borderColor: '#341F55',
   },
   viewSwitchChipActive: {
-    backgroundColor: '#276C62',
-    borderColor: '#2F8B7E',
+    backgroundColor: '#CC0055',
+    borderColor: '#E6006B',
+    ...Platform.select({
+      web: { boxShadow: '0 0 14px rgba(204, 0, 85, 0.55)' as never },
+      default: {},
+    }),
   },
   viewSwitchChipPressed: {
     opacity: 0.94,
   },
   viewSwitchText: {
-    color: '#B7C3C0',
-    fontSize: 14,
+    color: '#B8A9CC',
+    fontSize: 13,
     fontWeight: '700',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
   },
   viewSwitchTextActive: {
-    color: '#F4EEE4',
+    color: '#FFFFFF',
   },
   section: {
     marginTop: 28,
     paddingHorizontal: 18,
   },
+  libraryTopRow: {
+    gap: 16,
+  },
+  libraryTopRowSplit: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  libraryTopMain: {
+    flex: 1,
+    minWidth: 0,
+  },
+  libraryTopRail: {
+    marginTop: 16,
+    alignSelf: 'flex-end',
+    width: '100%',
+  },
+  libraryTopRailSplit: {
+    marginTop: 0,
+    flexShrink: 0,
+  },
   sectionTitle: {
-    color: '#F5E9D8',
+    color: '#F5F0FF',
     fontSize: 29,
     lineHeight: 34,
     fontWeight: '700',
+    letterSpacing: -0.3,
     fontFamily: Platform.select({ ios: 'Georgia', default: undefined }),
   },
   sectionIntro: {
-    color: '#AAB7B4',
+    color: '#A898BC',
     fontSize: 15,
     lineHeight: 22,
     marginTop: 8,
@@ -2172,13 +2983,19 @@ const styles = StyleSheet.create({
     paddingRight: 18,
     gap: 12,
   },
+  glasswareGrid: {
+    paddingTop: 16,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
   glassCard: {
     width: 220,
     borderRadius: 22,
     padding: 18,
-    backgroundColor: '#101A1E',
+    backgroundColor: '#100D1F',
     borderWidth: 1,
-    borderColor: '#23373F',
+    borderColor: '#2D1A4A',
   },
   glassVisualWrap: {
     marginBottom: 14,
@@ -2192,13 +3009,13 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   glassCardTitle: {
-    color: '#E8BF87',
+    color: '#FFB800',
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 8,
   },
   glassCardBody: {
-    color: '#B7C3C0',
+    color: '#B8A9CC',
     fontSize: 14,
     lineHeight: 22,
   },
@@ -2211,9 +3028,9 @@ const styles = StyleSheet.create({
     width: 230,
     borderRadius: 22,
     padding: 16,
-    backgroundColor: '#102327',
+    backgroundColor: '#120A20',
     borderWidth: 1,
-    borderColor: '#234147',
+    borderColor: '#2D1A4A',
   },
   lessonTitle: {
     color: '#F2E7D6',
@@ -2222,7 +3039,7 @@ const styles = StyleSheet.create({
   },
   lessonBody: {
     marginTop: 10,
-    color: '#C9D4D1',
+    color: '#C5B8DA',
     fontSize: 14,
     lineHeight: 21,
   },
@@ -2233,18 +3050,18 @@ const styles = StyleSheet.create({
   basicsCard: {
     borderRadius: 22,
     padding: 18,
-    backgroundColor: '#101A1E',
+    backgroundColor: '#100D1F',
     borderWidth: 1,
-    borderColor: '#23373F',
+    borderColor: '#2D1A4A',
   },
   basicsTitle: {
-    color: '#F5E9D8',
+    color: '#F5F0FF',
     fontSize: 18,
     fontWeight: '700',
   },
   basicsSummary: {
     marginTop: 8,
-    color: '#C8D3CF',
+    color: '#C5B8DA',
     fontSize: 14,
     lineHeight: 22,
   },
@@ -2258,14 +3075,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   basicsChecklistBullet: {
-    color: '#78D0C1',
+    color: '#00F0FF',
     fontSize: 16,
     lineHeight: 20,
     fontWeight: '700',
   },
   basicsChecklistText: {
     flex: 1,
-    color: '#D6DFDC',
+    color: '#C8BADA',
     fontSize: 14,
     lineHeight: 21,
   },
@@ -2273,24 +3090,24 @@ const styles = StyleSheet.create({
     marginTop: 16,
     borderRadius: 24,
     padding: 18,
-    backgroundColor: '#101A1E',
+    backgroundColor: '#100D1F',
     borderWidth: 1,
-    borderColor: '#23373F',
+    borderColor: '#2D1A4A',
     gap: 12,
   },
   searchInput: {
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#2B4048',
-    backgroundColor: '#0C1518',
+    borderColor: '#341F55',
+    backgroundColor: '#0A0816',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    color: '#F3ECE0',
+    color: '#EDE8FF',
     fontSize: 16,
   },
   searchButton: {
     borderRadius: 18,
-    backgroundColor: '#276C62',
+    backgroundColor: '#CC0055',
     paddingHorizontal: 16,
     paddingVertical: 14,
     alignItems: 'center',
@@ -2307,7 +3124,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   searchSource: {
-    color: '#90A49F',
+    color: '#8870AC',
     fontSize: 12,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
@@ -2319,7 +3136,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   searchMessage: {
-    color: '#78D0C1',
+    color: '#00F0FF',
     fontSize: 14,
     lineHeight: 20,
   },
@@ -2333,9 +3150,9 @@ const styles = StyleSheet.create({
   searchResultCard: {
     borderRadius: 22,
     padding: 14,
-    backgroundColor: '#0E171A',
+    backgroundColor: '#0B091C',
     borderWidth: 1,
-    borderColor: '#22353C',
+    borderColor: '#2A1842',
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
@@ -2344,18 +3161,18 @@ const styles = StyleSheet.create({
     width: 92,
     height: 92,
     borderRadius: 20,
-    backgroundColor: '#1A252A',
+    backgroundColor: '#1A0F2A',
   },
   searchResultPlaceholder: {
     width: 92,
     height: 92,
     borderRadius: 20,
-    backgroundColor: '#182227',
+    backgroundColor: '#15091F',
     alignItems: 'center',
     justifyContent: 'center',
   },
   searchResultPlaceholderText: {
-    color: '#A0AEAB',
+    color: '#9080AC',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -2363,26 +3180,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   searchResultTitle: {
-    color: '#F4EBDE',
+    color: '#F5F0FF',
     fontSize: 20,
     lineHeight: 24,
     fontWeight: '700',
     fontFamily: Platform.select({ ios: 'Georgia', default: undefined }),
   },
   searchResultMeta: {
-    color: '#95A9A4',
+    color: '#9080AC',
     fontSize: 13,
     lineHeight: 19,
     marginTop: 4,
   },
   searchResultPreview: {
-    color: '#C5D0CD',
+    color: '#C5B8DA',
     fontSize: 14,
     lineHeight: 21,
     marginTop: 10,
   },
   searchResultLabel: {
-    color: '#E4B277',
+    color: '#FFB300',
     fontSize: 12,
     fontWeight: '700',
     textTransform: 'uppercase',
@@ -2390,7 +3207,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   searchResultIngredients: {
-    color: '#D2DBD8',
+    color: '#C8BADA',
     fontSize: 14,
     lineHeight: 20,
     marginTop: 4,
@@ -2401,10 +3218,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 999,
-    backgroundColor: '#7C4C30',
+    backgroundColor: '#6600BB',
   },
   searchActionButtonMuted: {
-    backgroundColor: '#1A272C',
+    backgroundColor: '#1A0F2A',
   },
   searchActionButtonDisabled: {
     opacity: 0.7,
@@ -2413,12 +3230,12 @@ const styles = StyleSheet.create({
     opacity: 0.92,
   },
   searchActionButtonText: {
-    color: '#FFF5E9',
+    color: '#F5F0FF',
     fontSize: 13,
     fontWeight: '700',
   },
   searchActionButtonTextMuted: {
-    color: '#9BAAA6',
+    color: '#9080AC',
   },
   filterRow: {
     paddingTop: 16,
@@ -2429,19 +3246,23 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 15,
     paddingVertical: 10,
-    backgroundColor: '#132025',
+    backgroundColor: '#160C28',
     borderWidth: 1,
-    borderColor: '#284048',
+    borderColor: '#341F55',
   },
   filterChipActive: {
-    backgroundColor: '#276C62',
-    borderColor: '#2F8B7E',
+    backgroundColor: '#CC0055',
+    borderColor: '#E6006B',
+    ...Platform.select({
+      web: { boxShadow: '0 0 12px rgba(204, 0, 85, 0.5)' as never },
+      default: {},
+    }),
   },
   filterChipPressed: {
     opacity: 0.92,
   },
   filterChipText: {
-    color: '#B7C3C0',
+    color: '#B8A9CC',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -2453,19 +3274,30 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   drinkCard: {
-    backgroundColor: '#0F191D',
+    backgroundColor: '#100D1F',
     borderRadius: 28,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#23373F',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.14,
-    shadowRadius: 18,
-    elevation: 4,
+    borderColor: '#2D1A4A',
+    ...Platform.select({
+      web: {
+        boxShadow: '0px 10px 28px rgba(30, 0, 60, 0.45)' as never,
+      },
+      default: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.14,
+        shadowRadius: 18,
+        elevation: 4,
+      },
+    }),
   },
   drinkCardExpanded: {
-    borderColor: '#3B5961',
+    borderColor: '#5A2090',
+    ...Platform.select({
+      web: { boxShadow: '0px 10px 28px rgba(90, 32, 144, 0.35), 0 0 0 1px #5A2090' as never },
+      default: {},
+    }),
   },
   drinkCardPressed: {
     opacity: 0.95,
@@ -2487,55 +3319,55 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   primaryBadge: {
-    backgroundColor: '#245C54',
+    backgroundColor: '#7700AA',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
   },
   primaryBadgeText: {
-    color: '#EEF7F3',
+    color: '#F0E8FF',
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.4,
   },
   secondaryBadge: {
-    backgroundColor: '#1B272C',
+    backgroundColor: '#1A0F2A',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
   },
   secondaryBadgeText: {
-    color: '#E1B37B',
+    color: '#FFB300',
     fontSize: 12,
     fontWeight: '700',
   },
   sourceBadge: {
-    backgroundColor: '#241C19',
+    backgroundColor: '#1A0F2A',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
   },
   sourceBadgeText: {
-    color: '#E0B17A',
+    color: '#FFB300',
     fontSize: 12,
     fontWeight: '700',
   },
   drinkName: {
     marginTop: 10,
-    color: '#F5E9D8',
+    color: '#F5F0FF',
     fontSize: 24,
     lineHeight: 28,
     fontWeight: '700',
     fontFamily: Platform.select({ ios: 'Georgia', default: undefined }),
   },
   drinkMeta: {
-    color: '#94A8A4',
+    color: '#9080AC',
     fontSize: 13,
     lineHeight: 19,
     marginTop: 6,
   },
   drinkSummary: {
-    color: '#C4D0CC',
+    color: '#C5B8DA',
     fontSize: 14,
     lineHeight: 22,
     marginTop: 10,
@@ -2544,21 +3376,21 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   inlineLabel: {
-    color: '#DEAB70',
+    color: '#FFB300',
     fontSize: 12,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.7,
   },
   inlineValue: {
-    color: '#F0E7DA',
+    color: '#EDE8FF',
     fontSize: 14,
     lineHeight: 20,
     marginTop: 4,
   },
   tapHint: {
     marginTop: 14,
-    color: '#93A5A1',
+    color: '#9080AC',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -2567,15 +3399,19 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   detailBlock: {
-    backgroundColor: '#0C1518',
+    backgroundColor: '#0A0816',
     borderRadius: 20,
     padding: 16,
     gap: 10,
   },
   detailTitle: {
-    color: '#74C8B9',
+    color: '#00E5FF',
     fontSize: 17,
     fontWeight: '700',
+    ...Platform.select({
+      web: { textShadow: '0 0 12px rgba(0, 229, 255, 0.6)' as never },
+      default: {},
+    }),
   },
   detailRow: {
     flexDirection: 'row',
@@ -2584,13 +3420,13 @@ const styles = StyleSheet.create({
   },
   detailAmount: {
     width: 64,
-    color: '#E1A86B',
+    color: '#FFA500',
     fontSize: 14,
     fontWeight: '700',
   },
   detailText: {
     flex: 1,
-    color: '#D1DAD7',
+    color: '#C8BADA',
     fontSize: 14,
     lineHeight: 21,
   },
@@ -2605,8 +3441,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     textAlign: 'center',
     overflow: 'hidden',
-    backgroundColor: '#23353C',
-    color: '#E3B57E',
+    backgroundColor: '#2A1A42',
+    color: '#FFB300',
     fontSize: 13,
     fontWeight: '700',
     lineHeight: 24,
@@ -2614,12 +3450,12 @@ const styles = StyleSheet.create({
   tipPanel: {
     borderRadius: 20,
     padding: 16,
-    backgroundColor: '#111B1F',
+    backgroundColor: '#0F0C1E',
     borderWidth: 1,
-    borderColor: '#24373F',
+    borderColor: '#2D1A4A',
   },
   tipTitle: {
-    color: '#E0A86E',
+    color: '#FFA500',
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.7,
@@ -2627,25 +3463,25 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   tipBody: {
-    color: '#CDD6D3',
+    color: '#C5B8DA',
     fontSize: 14,
     lineHeight: 21,
   },
   emptyStateCard: {
     borderRadius: 24,
     padding: 20,
-    backgroundColor: '#101A1E',
+    backgroundColor: '#100D1F',
     borderWidth: 1,
-    borderColor: '#23373F',
+    borderColor: '#2D1A4A',
   },
   emptyStateTitle: {
-    color: '#F4EBDE',
+    color: '#F5F0FF',
     fontSize: 20,
     fontWeight: '700',
   },
   emptyStateBody: {
     marginTop: 8,
-    color: '#C5D0CD',
+    color: '#C5B8DA',
     fontSize: 14,
     lineHeight: 22,
   },
@@ -2654,16 +3490,16 @@ const styles = StyleSheet.create({
     marginHorizontal: 18,
     borderRadius: 26,
     padding: 20,
-    backgroundColor: '#102327',
+    backgroundColor: '#120A20',
   },
   footerTitle: {
-    color: '#F4EBDE',
+    color: '#F5F0FF',
     fontSize: 21,
     fontWeight: '700',
     marginBottom: 8,
   },
   footerBody: {
-    color: '#C8D3CF',
+    color: '#C5B8DA',
     fontSize: 15,
     lineHeight: 22,
   },
@@ -2671,14 +3507,14 @@ const styles = StyleSheet.create({
     marginTop: 18,
     borderRadius: 24,
     padding: 20,
-    backgroundColor: '#102327',
+    backgroundColor: '#120A20',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 16,
   },
   tipJarLabel: {
-    color: '#AFC1BC',
+    color: '#A898BC',
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.7,
@@ -2693,7 +3529,7 @@ const styles = StyleSheet.create({
     fontFamily: Platform.select({ ios: 'Georgia', default: undefined }),
   },
   tipJarMeta: {
-    color: '#AFC1BC',
+    color: '#A898BC',
     fontSize: 14,
     lineHeight: 20,
     maxWidth: 140,
@@ -2703,56 +3539,56 @@ const styles = StyleSheet.create({
     marginTop: 16,
     borderRadius: 24,
     padding: 18,
-    backgroundColor: '#101A1E',
+    backgroundColor: '#100D1F',
     borderWidth: 1,
-    borderColor: '#23373F',
+    borderColor: '#2D1A4A',
     gap: 12,
   },
   hintCard: {
     marginTop: 16,
     borderRadius: 24,
     padding: 18,
-    backgroundColor: '#122126',
+    backgroundColor: '#140B22',
     borderWidth: 1,
-    borderColor: '#2A434A',
+    borderColor: '#2F1A50',
   },
   hintTitle: {
-    color: '#F3E9DA',
+    color: '#EDE8FF',
     fontSize: 17,
     fontWeight: '700',
   },
   hintBody: {
     marginTop: 8,
-    color: '#CCD6D2',
+    color: '#C5B8DA',
     fontSize: 14,
     lineHeight: 21,
   },
   quizStepLabel: {
-    color: '#DEAB70',
+    color: '#FFB300',
     fontSize: 12,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.7,
   },
   quizDrinkName: {
-    color: '#F5E9D8',
+    color: '#F5F0FF',
     fontSize: 30,
     lineHeight: 34,
     fontWeight: '700',
     fontFamily: Platform.select({ ios: 'Georgia', default: undefined }),
   },
   quizDrinkMeta: {
-    color: '#94A8A4',
+    color: '#9080AC',
     fontSize: 14,
     lineHeight: 20,
   },
   quizDrinkPrompt: {
-    color: '#C5D1CD',
+    color: '#C5B8DA',
     fontSize: 15,
     lineHeight: 22,
   },
   quizCardTitle: {
-    color: '#F0E6D8',
+    color: '#EDE8FF',
     fontSize: 19,
     fontWeight: '700',
   },
@@ -2765,19 +3601,19 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 11,
-    backgroundColor: '#132025',
+    backgroundColor: '#160C28',
     borderWidth: 1,
-    borderColor: '#284048',
+    borderColor: '#341F55',
   },
   quizModeChipActive: {
-    backgroundColor: '#276C62',
-    borderColor: '#2F8B7E',
+    backgroundColor: '#CC0055',
+    borderColor: '#E6006B',
   },
   quizModeChipPressed: {
     opacity: 0.94,
   },
   quizModeChipText: {
-    color: '#B7C3C0',
+    color: '#B8A9CC',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -2792,12 +3628,12 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 18,
     padding: 14,
-    backgroundColor: '#0D1619',
+    backgroundColor: '#0B091A',
     borderWidth: 1,
-    borderColor: '#2A4048',
+    borderColor: '#2F1A50',
   },
   statTileLabel: {
-    color: '#92A7A1',
+    color: '#9080AC',
     fontSize: 12,
     fontWeight: '700',
     textTransform: 'uppercase',
@@ -2805,7 +3641,7 @@ const styles = StyleSheet.create({
   },
   statTileValue: {
     marginTop: 6,
-    color: '#F5E9D8',
+    color: '#F5F0FF',
     fontSize: 24,
     lineHeight: 28,
     fontWeight: '700',
@@ -2816,18 +3652,18 @@ const styles = StyleSheet.create({
   mistakeRow: {
     borderRadius: 16,
     padding: 12,
-    backgroundColor: '#0D1619',
+    backgroundColor: '#0B091A',
     borderWidth: 1,
-    borderColor: '#253A42',
+    borderColor: '#2A1842',
   },
   mistakeDrinkName: {
-    color: '#F2E7D7',
+    color: '#EDE8FF',
     fontSize: 15,
     fontWeight: '700',
   },
   mistakeMeta: {
     marginTop: 4,
-    color: '#AAB9B5',
+    color: '#A898BC',
     fontSize: 13,
     lineHeight: 19,
   },
@@ -2839,13 +3675,13 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 11,
-    backgroundColor: '#132025',
+    backgroundColor: '#160C28',
     borderWidth: 1,
-    borderColor: '#284048',
+    borderColor: '#341F55',
   },
   quizGlassChipActive: {
-    backgroundColor: '#276C62',
-    borderColor: '#2F8B7E',
+    backgroundColor: '#CC0055',
+    borderColor: '#E6006B',
   },
   quizGlassChipPressed: {
     opacity: 0.94,
@@ -2859,7 +3695,7 @@ const styles = StyleSheet.create({
     color: '#F4EEE4',
   },
   quizSelectionCount: {
-    color: '#E4B277',
+    color: '#FFB300',
     fontSize: 12,
     fontWeight: '700',
     textTransform: 'uppercase',
@@ -2882,7 +3718,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#275A53',
+    backgroundColor: '#8B0038',
   },
   selectedIngredientChipText: {
     color: '#F5EFE5',
@@ -2898,16 +3734,16 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#132025',
+    backgroundColor: '#160C28',
     borderWidth: 1,
-    borderColor: '#294048',
+    borderColor: '#341F55',
   },
   ingredientChipActive: {
-    backgroundColor: '#276C62',
-    borderColor: '#2F8B7E',
+    backgroundColor: '#CC0055',
+    borderColor: '#E6006B',
   },
   ingredientChipText: {
-    color: '#D2DBD8',
+    color: '#C8BADA',
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '600',
@@ -2931,9 +3767,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 9,
-    backgroundColor: '#15262B',
+    backgroundColor: '#160C28',
     borderWidth: 1,
-    borderColor: '#2B434A',
+    borderColor: '#341F55',
   },
   inlineResetButtonDisabled: {
     opacity: 0.5,
@@ -2942,7 +3778,7 @@ const styles = StyleSheet.create({
     opacity: 0.92,
   },
   inlineResetButtonText: {
-    color: '#DDE6E3',
+    color: '#E0D5F5',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -2955,13 +3791,13 @@ const styles = StyleSheet.create({
     gap: 10,
     borderRadius: 16,
     padding: 12,
-    backgroundColor: '#0D1619',
+    backgroundColor: '#0B091A',
     borderWidth: 1,
-    borderColor: '#294048',
+    borderColor: '#341F55',
   },
   buildSequenceText: {
     flex: 1,
-    color: '#D2DBD8',
+    color: '#C8BADA',
     fontSize: 14,
     lineHeight: 21,
   },
@@ -2971,16 +3807,16 @@ const styles = StyleSheet.create({
   buildOptionChip: {
     borderRadius: 16,
     padding: 12,
-    backgroundColor: '#132025',
+    backgroundColor: '#160C28',
     borderWidth: 1,
-    borderColor: '#294048',
+    borderColor: '#341F55',
   },
   buildOptionChipActive: {
-    backgroundColor: '#276C62',
-    borderColor: '#2F8B7E',
+    backgroundColor: '#CC0055',
+    borderColor: '#E6006B',
   },
   buildOptionChipText: {
-    color: '#D2DBD8',
+    color: '#C8BADA',
     fontSize: 13,
     lineHeight: 19,
     fontWeight: '600',
@@ -2989,7 +3825,7 @@ const styles = StyleSheet.create({
     color: '#F4EEE4',
   },
   emptyIngredientState: {
-    color: '#AAB7B4',
+    color: '#A898BC',
     fontSize: 14,
     lineHeight: 21,
   },
@@ -3001,13 +3837,17 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingVertical: 16,
     alignItems: 'center',
-    backgroundColor: '#2A675E',
+    backgroundColor: '#CC0055',
+    ...Platform.select({
+      web: { boxShadow: '0 0 22px rgba(204, 0, 85, 0.5)' as never },
+      default: {},
+    }),
   },
   serveButtonSuccess: {
-    backgroundColor: '#2A7A5C',
+    backgroundColor: '#00AA44',
   },
   serveButtonError: {
-    backgroundColor: '#8C433A',
+    backgroundColor: '#881A1A',
   },
   serveButtonInfo: {
     backgroundColor: '#2D4952',
@@ -3019,7 +3859,7 @@ const styles = StyleSheet.create({
     opacity: 0.94,
   },
   serveButtonText: {
-    color: '#FFF7EB',
+    color: '#F5F0FF',
     fontSize: 16,
     fontWeight: '700',
   },
@@ -3030,24 +3870,24 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   feedbackCardSuccess: {
-    backgroundColor: '#10251F',
-    borderColor: '#2D6657',
+    backgroundColor: '#0A1800',
+    borderColor: '#006644',
   },
   feedbackCardWarning: {
-    backgroundColor: '#281B18',
-    borderColor: '#724638',
+    backgroundColor: '#1A0808',
+    borderColor: '#6B0000',
   },
   feedbackCardInfo: {
-    backgroundColor: '#142025',
-    borderColor: '#324C55',
+    backgroundColor: '#0A0820',
+    borderColor: '#2A1A55',
   },
   feedbackTitle: {
-    color: '#F4EBDD',
+    color: '#F5F0FF',
     fontSize: 17,
     fontWeight: '700',
   },
   feedbackBody: {
-    color: '#CDD6D3',
+    color: '#C5B8DA',
     fontSize: 14,
     lineHeight: 21,
   },
@@ -3065,13 +3905,13 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: '#7C4C30',
+    backgroundColor: '#6600BB',
   },
   cheatButtonPressed: {
     opacity: 0.92,
   },
   cheatButtonText: {
-    color: '#FFF5E9',
+    color: '#F5F0FF',
     fontSize: 13,
     fontWeight: '700',
   },
@@ -3079,20 +3919,20 @@ const styles = StyleSheet.create({
     marginTop: 4,
     borderRadius: 18,
     padding: 14,
-    backgroundColor: '#0D1619',
+    backgroundColor: '#0B091A',
     borderWidth: 1,
-    borderColor: '#2A4048',
+    borderColor: '#2F1A50',
     gap: 8,
   },
   answerRevealTitle: {
-    color: '#7ACDBE',
+    color: '#00E5FF',
     fontSize: 13,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },
   answerRevealBody: {
-    color: '#D3DCDA',
+    color: '#C8BADA',
     fontSize: 14,
     lineHeight: 21,
   },
@@ -3106,13 +3946,13 @@ const styles = StyleSheet.create({
   },
   answerRevealAmount: {
     width: 68,
-    color: '#E1A86B',
+    color: '#FFA500',
     fontSize: 13,
     fontWeight: '700',
   },
   answerRevealText: {
     flex: 1,
-    color: '#D3DCDA',
+    color: '#C8BADA',
     fontSize: 14,
     lineHeight: 21,
   },
@@ -3120,9 +3960,9 @@ const styles = StyleSheet.create({
     marginTop: 28,
     borderRadius: 26,
     padding: 20,
-    backgroundColor: '#0F191D',
+    backgroundColor: '#100D1F',
     borderWidth: 1,
-    borderColor: '#23373F',
+    borderColor: '#2D1A4A',
     gap: 14,
   },
   legalPageHeader: {
@@ -3130,7 +3970,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   legalPageKicker: {
-    color: '#AFC1BC',
+    color: '#A898BC',
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.7,
@@ -3141,25 +3981,25 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: '#132025',
+    backgroundColor: '#160C28',
     borderWidth: 1,
-    borderColor: '#294048',
+    borderColor: '#341F55',
   },
   legalBackButtonPressed: {
     opacity: 0.9,
   },
   legalBackButtonText: {
-    color: '#E8F0EE',
+    color: '#E0D5F5',
     fontSize: 13,
     fontWeight: '700',
   },
   legalTitle: {
-    color: '#F4EBDE',
+    color: '#F5F0FF',
     fontSize: 22,
     fontWeight: '700',
   },
   legalIntro: {
-    color: '#AFC1BC',
+    color: '#A898BC',
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 0.6,
@@ -3169,19 +4009,19 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   legalLabel: {
-    color: '#E0A86E',
+    color: '#FFA500',
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
   legalValue: {
-    color: '#D5DFDC',
+    color: '#C8BADA',
     fontSize: 15,
     lineHeight: 22,
   },
   legalSubtle: {
-    color: '#93A5A1',
+    color: '#9080AC',
     fontSize: 13,
     lineHeight: 19,
   },
@@ -3192,13 +4032,13 @@ const styles = StyleSheet.create({
     opacity: 0.82,
   },
   legalLink: {
-    color: '#7ACDBE',
+    color: '#00E5FF',
     fontSize: 15,
     lineHeight: 22,
     textDecorationLine: 'underline',
   },
   legalNotice: {
-    color: '#93A5A1',
+    color: '#9080AC',
     fontSize: 13,
     lineHeight: 20,
   },
@@ -3211,32 +4051,60 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
   },
+  footerAdWrap: {
+    marginTop: 5,
+    marginBottom: 5,
+    marginHorizontal: 18,
+  },
+  desktopAdRail: {
+    paddingTop: 14,
+    paddingRight: 18,
+    paddingLeft: 6,
+    paddingBottom: 18,
+    flexShrink: 0,
+  },
+  desktopAdRailStack: {
+    gap: 10,
+  },
   legalFooterLinkWrap: {
     alignSelf: 'center',
   },
   legalFooterLink: {
-    color: '#9BCFC6',
+    color: '#00C8E0',
     fontSize: 14,
     lineHeight: 20,
     textDecorationLine: 'underline',
   },
   legalFooterDivider: {
-    color: '#637975',
+    color: '#5A4A7A',
     fontSize: 16,
     lineHeight: 20,
   },
   previewOverlay: {
     flex: 1,
+    ...Platform.select({
+      web: {
+        position: 'fixed' as never,
+        left: 0,
+        right: 0,
+        top: 0,
+        bottom: 0,
+        zIndex: 9999,
+      },
+      default: null,
+    }),
   },
   previewBackdrop: {
     ...StyleSheet.absoluteFillObject,
   },
   previewBackdropShade: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(3, 7, 10, 0.92)',
+    backgroundColor: 'rgba(5, 0, 15, 0.92)',
+    pointerEvents: 'none',
   },
   previewSafeArea: {
     flex: 1,
+    pointerEvents: 'box-none',
   },
   previewHeader: {
     paddingHorizontal: 12,
@@ -3250,7 +4118,7 @@ const styles = StyleSheet.create({
   },
   previewTitle: {
     flex: 1,
-    color: '#F5E9D8',
+    color: '#F5F0FF',
     fontSize: 22,
     lineHeight: 28,
     fontWeight: '700',
@@ -3260,36 +4128,43 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: '#132025',
+    backgroundColor: '#160C28',
     borderWidth: 1,
-    borderColor: '#2D4249',
+    borderColor: '#3A2060',
   },
   previewCloseButtonPressed: {
     opacity: 0.9,
   },
   previewCloseButtonText: {
-    color: '#E8F0EE',
+    color: '#E0D5F5',
     fontSize: 13,
     fontWeight: '700',
   },
   previewAnimatedFrame: {
     position: 'absolute',
     borderRadius: 30,
-    backgroundColor: '#091114',
+    backgroundColor: '#070412',
     borderWidth: 1,
-    borderColor: '#24373F',
+    borderColor: '#2D1A4A',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 18 },
-    shadowOpacity: 0.22,
-    shadowRadius: 32,
-    elevation: 8,
+    ...Platform.select({
+      web: {
+        boxShadow: '0px 18px 32px rgba(0, 0, 0, 0.22)' as never,
+      },
+      default: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 18 },
+        shadowOpacity: 0.22,
+        shadowRadius: 32,
+        elevation: 8,
+      },
+    }),
   },
   previewImage: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#0F191D',
+    backgroundColor: '#100D1F',
   },
 });

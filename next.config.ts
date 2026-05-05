@@ -1,19 +1,21 @@
-import type { NextConfig } from 'next';
+import path from "path";
+import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  async headers() {
-    return [
-      {
-        source: '/:path*',
-        headers: [
-          {
-            key: 'Content-Security-Policy',
-            value:
-              "frame-ancestors 'self' http://localhost:3000 https://ryan-portfolio-bay.vercel.app",
-          },
-        ],
-      },
-    ];
+  outputFileTracingRoot: path.join(__dirname),
+  transpilePackages: [
+    "expo",
+    "expo-linear-gradient",
+    "react-native",
+    "react-native-web",
+  ],
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...(config.resolve.alias ?? {}),
+      "react-native$": "react-native-web",
+    };
+
+    return config;
   },
 };
 
