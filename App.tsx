@@ -1,5 +1,6 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { type ChangeEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import NextImage, { type ImageLoaderProps } from 'next/image';
 import {
   ActivityIndicator,
   Animated,
@@ -29,6 +30,7 @@ import {
   glasswareGuide,
   lessons,
   type Drink,
+  type DrinkArtworkSpec,
   type GlasswareIllustration,
 } from './src/data/bartending';
 import { cacheRemoteImageAsDataUrl } from './src/lib/imageCache';
@@ -65,10 +67,27 @@ const QUIZ_GLASS_OPTIONS = [
   'Rocks-Glas',
   'Weinglas',
 ] as const;
+const CUSTOM_DRINK_TECHNIQUES: Drink['technique'][] = ['Aufbauen', 'Shaken', 'Rühren', 'Blenden'];
+const CUSTOM_DRINK_INITIAL_FORM = {
+  name: '',
+  category: 'Eigene Drinks',
+  ingredientsText: '',
+  glass: '',
+  ice: 'Eiswürfel',
+  technique: 'Shaken' as Drink['technique'],
+  garnish: '',
+  methodText: '',
+  imageDataUrl: '',
+  imageName: '',
+};
 const CORRECT_TIP_REWARD = 5;
 const WRONG_TIP_PENALTY = 3;
 const CORRECT_REVEAL_MS = 1600;
 const CHEAT_REVEAL_MS = 3000;
+
+function passthroughImageLoader({ src }: ImageLoaderProps) {
+  return src;
+}
 
 type AppView = (typeof APP_VIEWS)[number]['key'];
 type LegalPage = 'impressum' | 'privacy';
@@ -97,6 +116,7 @@ type ImagePreviewTriggerProps = {
   pressedStyle?: StyleProp<ViewStyle>;
   stopPropagation?: boolean;
 };
+type CustomDrinkFormState = typeof CUSTOM_DRINK_INITIAL_FORM;
 
 type PreviewTriggerNode = {
   measureInWindow?: (
@@ -202,19 +222,13 @@ function StatTile({ label, value }: { label: string; value: string }) {
   );
 }
 
-const AD_POSTER_SRC = '/ads/adspace.png'
-
-function AdvertiseCard({
-  onPress,
-  compact = false,
-  narrow = false,
-  width,
-}: {
+function AdvertiseCard(props: {
   onPress: () => void;
   compact?: boolean;
   narrow?: boolean;
   width?: number;
 }) {
+  void props;
   return null;
 }
 
@@ -225,6 +239,7 @@ export default function App() {
   const previewAnimation = useRef(new Animated.Value(0)).current;
   const quizPoolDrinksRef = useRef<Drink[]>([]);
   const webFrameRef = useRef<HTMLElement | null>(null);
+  const customImageInputRef = useRef<HTMLInputElement | null>(null);
   const pendingOriginRef = useRef<ImagePreviewFrame | null>(null);
   const targetFrameForAnimRef = useRef<ImagePreviewFrame>({ x: 0, y: 0, width: 0, height: 0 });
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
@@ -235,6 +250,12 @@ export default function App() {
   const [librarySearchQuery, setLibrarySearchQuery] = useState('');
   const [activeLegalPage, setActiveLegalPage] = useState<LegalPage | null>(null);
   const [importedDrinks, setImportedDrinks] = useState<Drink[]>([]);
+  const [showCustomDrinkForm, setShowCustomDrinkForm] = useState(false);
+  const [customDrinkForm, setCustomDrinkForm] = useState<CustomDrinkFormState>(
+    CUSTOM_DRINK_INITIAL_FORM
+  );
+  const [customDrinkMessage, setCustomDrinkMessage] = useState<string | null>(null);
+  const [customDrinkError, setCustomDrinkError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<WebDrinkSearchResult[]>([]);
   const [searchMessage, setSearchMessage] = useState<string | null>(null);
@@ -560,6 +581,98 @@ export default function App() {
 
     clearPositiveFeedback();
     setIngredientSearchQuery(value);
+  }
+
+  function updateCustomDrinkForm<K extends keyof CustomDrinkFormState>(
+    key: K,
+    value: CustomDrinkFormState[K]
+  ) {
+    setCustomDrinkForm((current) => ({ ...current, [key]: value }));
+    setCustomDrinkError(null);
+    setCustomDrinkMessage(null);
+  }
+
+  function handleCustomImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      setCustomDrinkError('Bitte waehle eine Bilddatei aus.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      setCustomDrinkForm((current) => ({
+        ...current,
+        imageDataUrl: result,
+        imageName: file.name,
+      }));
+      setCustomDrinkError(null);
+      setCustomDrinkMessage(null);
+    };
+    reader.onerror = () => {
+      setCustomDrinkError('Das Bild konnte nicht gelesen werden.');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function clearCustomImage() {
+    setCustomDrinkForm((current) => ({ ...current, imageDataUrl: '', imageName: '' }));
+    if (customImageInputRef.current) {
+      customImageInputRef.current.value = '';
+    }
+  }
+
+  function handleAddCustomDrink() {
+    const customDrink = createCustomDrink(customDrinkForm, allDrinks);
+
+    if (!customDrink) {
+      setCustomDrinkError('Name, Glas und mindestens eine Zutat sind erforderlich.');
+      setCustomDrinkMessage(null);
+      return;
+    }
+
+    const existingDrink = findExistingDrink(customDrink.name);
+    if (existingDrink) {
+      focusDrink(existingDrink);
+      setCustomDrinkError(null);
+      setCustomDrinkMessage(`"${existingDrink.name}" ist bereits in deiner Bibliothek.`);
+      return;
+    }
+
+    const nextImportedDrinks = [customDrink, ...importedDrinks];
+    setImportedDrinks(nextImportedDrinks);
+    saveImportedDrinks(nextImportedDrinks);
+    setCustomDrinkForm(CUSTOM_DRINK_INITIAL_FORM);
+    setShowCustomDrinkForm(false);
+    setActiveView('library');
+    setLibrarySearchQuery('');
+    setSelectedCategory(customDrink.category);
+    setExpandedDrinkId(customDrink.id);
+    setCustomDrinkError(null);
+    setCustomDrinkMessage(`"${customDrink.name}" wurde lokal gespeichert.`);
+
+    requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollTo({
+        y: Math.max(0, librarySectionOffsetRef.current - 12),
+        animated: true,
+      });
+    });
+  }
+
+  function handleRemoveSavedDrink(drink: Drink, event: GestureResponderEvent) {
+    event.stopPropagation();
+    const nextImportedDrinks = importedDrinks.filter((entry) => entry.id !== drink.id);
+
+    setImportedDrinks(nextImportedDrinks);
+    saveImportedDrinks(nextImportedDrinks);
+    setExpandedDrinkId((current) => (current === drink.id ? null : current));
+    setSelectedCategory('Alle');
+    setCustomDrinkMessage(`"${drink.name}" wurde aus der lokalen Bibliothek entfernt.`);
   }
 
   async function handleSearch() {
@@ -921,9 +1034,13 @@ export default function App() {
                 <DrinkVisual drink={imagePreview.drink} size={previewVisualSize} resizeMode="contain" />
               ) : null}
               {imagePreview.kind === 'remote' ? (
-                <img
+                <NextImage
+                  loader={passthroughImageLoader}
                   src={imagePreview.uri}
-                  alt=""
+                  alt={imagePreview.title}
+                  width={previewVisualSize}
+                  height={previewVisualSize}
+                  sizes={`${previewVisualSize}px`}
                   style={{ width: previewVisualSize, height: previewVisualSize, objectFit: 'contain', display: 'block' }}
                 />
               ) : null}
@@ -957,7 +1074,12 @@ export default function App() {
                 <DrinkVisual drink={imagePreview.drink} size={previewVisualSize} resizeMode="contain" />
               ) : null}
               {imagePreview.kind === 'remote' ? (
-                <Image source={{ uri: imagePreview.uri }} style={styles.previewImage} resizeMode="contain" />
+                <Image
+                  alt={imagePreview.title}
+                  source={{ uri: imagePreview.uri }}
+                  style={styles.previewImage}
+                  resizeMode="contain"
+                />
               ) : null}
             </Animated.View>
           )}
@@ -1193,6 +1315,237 @@ export default function App() {
             </View>
 
             <View style={styles.section}>
+              <View style={styles.customDrinkHeader}>
+                <View style={styles.customDrinkHeaderText}>
+                  <Text style={styles.sectionTitle}>Eigene Drinks</Text>
+                  <Text style={styles.sectionIntro}>
+                    Lege Barstandards, Hausdrinks oder Trainingsrezepte direkt in deiner lokalen
+                    Bibliothek an.
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() => {
+                    setShowCustomDrinkForm((current) => !current);
+                    setCustomDrinkError(null);
+                    setCustomDrinkMessage(null);
+                  }}
+                  style={({ pressed }) => [
+                    styles.customDrinkToggleButton,
+                    showCustomDrinkForm && styles.customDrinkToggleButtonActive,
+                    pressed && styles.customDrinkToggleButtonPressed,
+                  ]}
+                >
+                  <Text style={styles.customDrinkToggleButtonText}>
+                    {showCustomDrinkForm ? 'Formular schliessen' : 'Drink hinzufuegen'}
+                  </Text>
+                </Pressable>
+              </View>
+
+              {showCustomDrinkForm ? (
+                <View style={styles.customDrinkForm}>
+                  <View style={styles.customFormGrid}>
+                    <View style={styles.customFormField}>
+                      <Text style={styles.customFormLabel}>Name</Text>
+                      <TextInput
+                        value={customDrinkForm.name}
+                        onChangeText={(value) => updateCustomDrinkForm('name', value)}
+                        placeholder="Zum Beispiel: Haus Mule"
+                        placeholderTextColor="#8070A0"
+                        style={styles.searchInput}
+                        autoCapitalize="words"
+                        autoCorrect={false}
+                        keyboardAppearance="dark"
+                      />
+                    </View>
+
+                    <View style={styles.customFormField}>
+                      <Text style={styles.customFormLabel}>Kategorie</Text>
+                      <TextInput
+                        value={customDrinkForm.category}
+                        onChangeText={(value) => updateCustomDrinkForm('category', value)}
+                        placeholder="Eigene Drinks"
+                        placeholderTextColor="#8070A0"
+                        style={styles.searchInput}
+                        autoCapitalize="sentences"
+                        autoCorrect={false}
+                        keyboardAppearance="dark"
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.customFormGrid}>
+                    <View style={styles.customFormField}>
+                      <Text style={styles.customFormLabel}>Glas</Text>
+                      <TextInput
+                        value={customDrinkForm.glass}
+                        onChangeText={(value) => updateCustomDrinkForm('glass', value)}
+                        placeholder="Rocks-Glas, Coupe, Highball..."
+                        placeholderTextColor="#8070A0"
+                        style={styles.searchInput}
+                        autoCapitalize="words"
+                        autoCorrect={false}
+                        keyboardAppearance="dark"
+                      />
+                    </View>
+
+                    <View style={styles.customFormField}>
+                      <Text style={styles.customFormLabel}>Eis</Text>
+                      <TextInput
+                        value={customDrinkForm.ice}
+                        onChangeText={(value) => updateCustomDrinkForm('ice', value)}
+                        placeholder="Eiswürfel, Crushed Ice, ohne Eis..."
+                        placeholderTextColor="#8070A0"
+                        style={styles.searchInput}
+                        autoCapitalize="sentences"
+                        autoCorrect={false}
+                        keyboardAppearance="dark"
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.customFormField}>
+                    <Text style={styles.customFormLabel}>Technik</Text>
+                    <View style={styles.quizModeRow}>
+                      {CUSTOM_DRINK_TECHNIQUES.map((technique) => {
+                        const active = customDrinkForm.technique === technique;
+
+                        return (
+                          <Pressable
+                            key={technique}
+                            onPress={() => updateCustomDrinkForm('technique', technique)}
+                            style={({ pressed }) => [
+                              styles.quizModeChip,
+                              active && styles.quizModeChipActive,
+                              pressed && styles.quizModeChipPressed,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.quizModeChipText,
+                                active && styles.quizModeChipTextActive,
+                              ]}
+                            >
+                              {technique}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+
+                  <View style={styles.customFormField}>
+                    <Text style={styles.customFormLabel}>Zutaten</Text>
+                    <TextInput
+                      value={customDrinkForm.ingredientsText}
+                      onChangeText={(value) => updateCustomDrinkForm('ingredientsText', value)}
+                      placeholder={'6 cl Gin\n12 cl Tonic Water\n1 Spalte Limette'}
+                      placeholderTextColor="#8070A0"
+                      style={[styles.searchInput, styles.customTextArea]}
+                      multiline
+                      autoCapitalize="sentences"
+                      autoCorrect={false}
+                      keyboardAppearance="dark"
+                    />
+                  </View>
+
+                  <View style={styles.customFormField}>
+                    <Text style={styles.customFormLabel}>Garnitur</Text>
+                    <TextInput
+                      value={customDrinkForm.garnish}
+                      onChangeText={(value) => updateCustomDrinkForm('garnish', value)}
+                      placeholder="Optional, zum Beispiel: Limettenspalte"
+                      placeholderTextColor="#8070A0"
+                      style={styles.searchInput}
+                      autoCapitalize="sentences"
+                      autoCorrect={false}
+                      keyboardAppearance="dark"
+                    />
+                  </View>
+
+                  <View style={styles.customFormField}>
+                    <Text style={styles.customFormLabel}>Zubereitung</Text>
+                    <TextInput
+                      value={customDrinkForm.methodText}
+                      onChangeText={(value) => updateCustomDrinkForm('methodText', value)}
+                      placeholder={'Optional: ein Arbeitsschritt pro Zeile'}
+                      placeholderTextColor="#8070A0"
+                      style={[styles.searchInput, styles.customTextArea]}
+                      multiline
+                      autoCapitalize="sentences"
+                      autoCorrect={false}
+                      keyboardAppearance="dark"
+                    />
+                  </View>
+
+                  <View style={styles.customImageRow}>
+                    <View style={styles.customImagePreview}>
+                      {customDrinkForm.imageDataUrl ? (
+                        <Image
+                          alt=""
+                          source={{ uri: customDrinkForm.imageDataUrl }}
+                          style={styles.customImagePreviewImage}
+                        />
+                      ) : (
+                        <Text style={styles.customImagePreviewText}>Kein Bild</Text>
+                      )}
+                    </View>
+                    <View style={styles.customImageActions}>
+                      {Platform.OS === 'web' ? (
+                        <input
+                          ref={customImageInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleCustomImageChange}
+                          style={{ display: 'none' }}
+                        />
+                      ) : null}
+                      <Pressable
+                        onPress={() => customImageInputRef.current?.click()}
+                        style={({ pressed }) => [
+                          styles.searchActionButton,
+                          pressed && styles.searchActionButtonPressed,
+                        ]}
+                      >
+                        <Text style={styles.searchActionButtonText}>Bild auswaehlen</Text>
+                      </Pressable>
+                      {customDrinkForm.imageName ? (
+                        <Text style={styles.customImageName}>{customDrinkForm.imageName}</Text>
+                      ) : null}
+                      {customDrinkForm.imageDataUrl ? (
+                        <Pressable
+                          onPress={clearCustomImage}
+                          style={({ pressed }) => [
+                            styles.inlineResetButton,
+                            pressed && styles.inlineResetButtonPressed,
+                          ]}
+                        >
+                          <Text style={styles.inlineResetButtonText}>Bild entfernen</Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                  </View>
+
+                  {customDrinkError ? <Text style={styles.searchError}>{customDrinkError}</Text> : null}
+                  {customDrinkMessage && !customDrinkError ? (
+                    <Text style={styles.searchMessage}>{customDrinkMessage}</Text>
+                  ) : null}
+
+                  <Pressable
+                    onPress={handleAddCustomDrink}
+                    style={({ pressed }) => [
+                      styles.searchButton,
+                      pressed && styles.searchButtonPressed,
+                    ]}
+                  >
+                    <Text style={styles.searchButtonText}>In Bibliothek speichern</Text>
+                  </Pressable>
+                </View>
+              ) : customDrinkMessage ? (
+                <Text style={styles.customDrinkSavedMessage}>{customDrinkMessage}</Text>
+              ) : null}
+            </View>
+
+            <View style={styles.section}>
               <Text style={styles.sectionTitle}>Drinks aus dem Web importieren</Text>
               <Text style={styles.sectionIntro}>
                 Fehlt ein Cocktail noch in der App, suche ihn online und importiere Zutaten,
@@ -1272,7 +1625,11 @@ export default function App() {
                               style={styles.imagePreviewButton}
                               pressedStyle={styles.imagePreviewButtonPressed}
                             >
-                              <Image source={{ uri: result.imageUrl }} style={styles.searchResultImage} />
+                              <Image
+                                alt={result.name}
+                                source={{ uri: result.imageUrl }}
+                                style={styles.searchResultImage}
+                              />
                             </ImagePreviewTrigger>
                           ) : (
                             <View style={styles.searchResultPlaceholder}>
@@ -1431,6 +1788,22 @@ export default function App() {
                                 <View style={styles.sourceBadge}>
                                   <Text style={styles.sourceBadgeText}>Web</Text>
                                 </View>
+                              ) : null}
+                              {drink.source === 'custom' ? (
+                                <View style={styles.sourceBadge}>
+                                  <Text style={styles.sourceBadgeText}>Eigen</Text>
+                                </View>
+                              ) : null}
+                              {drink.source === 'web-import' || drink.source === 'custom' ? (
+                                <Pressable
+                                  onPress={(event) => handleRemoveSavedDrink(drink, event)}
+                                  style={({ pressed }) => [
+                                    styles.removeDrinkButton,
+                                    pressed && styles.removeDrinkButtonPressed,
+                                  ]}
+                                >
+                                  <Text style={styles.removeDrinkButtonText}>Entfernen</Text>
+                                </Pressable>
                               ) : null}
                             </View>
 
@@ -2157,6 +2530,169 @@ function resolvePreviewFrame(
     width: fallbackSize,
     height: fallbackSize,
   };
+}
+
+function createCustomDrink(form: CustomDrinkFormState, existingDrinks: Drink[]): Drink | null {
+  const name = form.name.trim();
+  const glass = form.glass.trim();
+  const ingredients = parseCustomIngredients(form.ingredientsText);
+
+  if (!name || !glass || !ingredients.length) {
+    return null;
+  }
+
+  const category = form.category.trim() || 'Eigene Drinks';
+  const ice = form.ice.trim() || 'Nach Barstandard';
+  const method = parseCustomMethod(form.methodText, form.technique, glass, ice);
+  const garnish = form.garnish.trim() || 'Keine Garnitur angegeben';
+
+  return {
+    id: createCustomDrinkId(name, existingDrinks),
+    source: 'custom',
+    name,
+    category,
+    technique: form.technique,
+    difficulty: ingredients.length >= 5 || method.length >= 4 ? 'Mittel' : 'Leicht',
+    glass,
+    garnish,
+    summary: `Eigener Drink fuer die lokale Bibliothek. Eis: ${ice}. Technik: ${form.technique}.`,
+    germanNote:
+      'Lokal angelegter Drink. Rezept, Glas, Eis und Bild bleiben auf diesem Geraet gespeichert.',
+    proTip: `Beim Service ${ice.toLowerCase()} einplanen und den Hausstandard fuer ${glass} einhalten.`,
+    ingredients,
+    method,
+    artwork: inferCustomArtwork(form, ingredients),
+    cachedImageDataUrl: form.imageDataUrl || undefined,
+  };
+}
+
+function parseCustomIngredients(value: string) {
+  return value
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const separated = line.match(/^(.+?)\s+(?:-|–|—|\|)\s+(.+)$/);
+      if (separated) {
+        return { amount: separated[1].trim(), item: separated[2].trim() };
+      }
+
+      const measured = line.match(
+        /^((?:\d|[,.\/])+[\w\s,.\/]*?\s(?:cl|ml|oz|dash|dashes|barloeffel|barlöffel|tsp|tbsp|scheibe|spalte|zweig|wuerfel|würfel|stueck|stück))\s+(.+)$/i
+      );
+      if (measured) {
+        return { amount: measured[1].trim(), item: measured[2].trim() };
+      }
+
+      return { amount: '', item: line };
+    })
+    .filter((ingredient) => ingredient.item);
+}
+
+function parseCustomMethod(
+  value: string,
+  technique: Drink['technique'],
+  glass: string,
+  ice: string
+) {
+  const explicitSteps = value
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (explicitSteps.length) {
+    return explicitSteps;
+  }
+
+  if (technique === 'Shaken') {
+    return [
+      `Zutaten mit ${ice} in den Shaker geben.`,
+      'Kräftig kalt shaken.',
+      `In ein ${glass} abseihen und servieren.`,
+    ];
+  }
+
+  if (technique === 'Rühren') {
+    return [
+      `Zutaten mit ${ice} im Rührglas kalt rühren.`,
+      `In ein ${glass} abseihen und servieren.`,
+    ];
+  }
+
+  if (technique === 'Blenden') {
+    return [`Zutaten mit ${ice} blenden.`, `In ein ${glass} geben und servieren.`];
+  }
+
+  return [`${glass} mit ${ice} vorbereiten.`, 'Zutaten im Glas aufbauen und kurz anheben.'];
+}
+
+function createCustomDrinkId(name: string, existingDrinks: Drink[]) {
+  const baseId = `custom-${normalizeDrinkKey(name).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'drink'}`;
+  const usedIds = new Set(existingDrinks.map((drink) => drink.id));
+
+  if (!usedIds.has(baseId)) {
+    return baseId;
+  }
+
+  let index = 2;
+  while (usedIds.has(`${baseId}-${index}`)) {
+    index += 1;
+  }
+
+  return `${baseId}-${index}`;
+}
+
+function inferCustomArtwork(
+  form: CustomDrinkFormState,
+  ingredients: Array<{ amount: string; item: string }>
+): DrinkArtworkSpec {
+  const haystack = `${form.name} ${form.glass} ${form.ice} ${form.garnish} ${ingredients
+    .map((ingredient) => ingredient.item)
+    .join(' ')}`.toLowerCase();
+  const glassStyle = inferCustomGlassStyle(form.glass);
+
+  const garnish = haystack.includes('mint') || haystack.includes('minze')
+    ? 'mint'
+    : haystack.includes('orange')
+      ? 'orange'
+      : haystack.includes('lime') || haystack.includes('limette')
+        ? 'lime'
+        : haystack.includes('lemon') || haystack.includes('zitrone')
+          ? 'lemon'
+          : undefined;
+
+  return {
+    background: haystack.includes('kaffee') || haystack.includes('coffee')
+      ? ['#1D1716', '#6C4C39']
+      : ['#162C3A', '#7B4B62'],
+    liquid: haystack.includes('cranberry') || haystack.includes('grenadine')
+      ? ['#E35B78', '#9D163D']
+      : ['#F1C96A', '#C77731'],
+    glassStyle,
+    garnish,
+    bubbles:
+      haystack.includes('soda') ||
+      haystack.includes('tonic') ||
+      haystack.includes('prosecco') ||
+      haystack.includes('champagner'),
+    ice: !haystack.includes('ohne eis'),
+    straw: glassStyle === 'highball' || glassStyle === 'wine' || glassStyle === 'hurricane',
+  };
+}
+
+function inferCustomGlassStyle(glass: string): DrinkArtworkSpec['glassStyle'] {
+  const normalized = normalizeQuizLabel(glass);
+
+  if (normalized.includes('martini')) return 'martini';
+  if (normalized.includes('coupe') || normalized.includes('sour')) return 'coupe';
+  if (normalized.includes('wine') || normalized.includes('wein')) return 'wine';
+  if (normalized.includes('mule') || normalized.includes('becher') || normalized.includes('mug')) return 'mug';
+  if (normalized.includes('hurricane')) return 'hurricane';
+  if (normalized.includes('rocks') || normalized.includes('tumbler') || normalized.includes('old fashioned')) {
+    return 'rocks';
+  }
+
+  return 'highball';
 }
 
 function buildIngredientBank(drinkPool: Drink[], mode: QuizMode) {
@@ -3095,6 +3631,110 @@ const styles = StyleSheet.create({
     borderColor: '#2D1A4A',
     gap: 12,
   },
+  customDrinkHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 14,
+    flexWrap: 'wrap',
+  },
+  customDrinkHeaderText: {
+    flex: 1,
+    minWidth: 260,
+  },
+  customDrinkToggleButton: {
+    borderRadius: 18,
+    backgroundColor: '#6600BB',
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    borderWidth: 1,
+    borderColor: '#8B3EFF',
+  },
+  customDrinkToggleButtonActive: {
+    backgroundColor: '#160C28',
+    borderColor: '#341F55',
+  },
+  customDrinkToggleButtonPressed: {
+    opacity: 0.92,
+  },
+  customDrinkToggleButtonText: {
+    color: '#F5F0FF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  customDrinkForm: {
+    marginTop: 16,
+    borderRadius: 24,
+    padding: 18,
+    backgroundColor: '#100D1F',
+    borderWidth: 1,
+    borderColor: '#2D1A4A',
+    gap: 14,
+  },
+  customFormGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  customFormField: {
+    flex: 1,
+    minWidth: 240,
+    gap: 8,
+  },
+  customFormLabel: {
+    color: '#FFB300',
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+  },
+  customTextArea: {
+    minHeight: 116,
+    textAlignVertical: 'top',
+  },
+  customImageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    flexWrap: 'wrap',
+  },
+  customImagePreview: {
+    width: 108,
+    height: 108,
+    borderRadius: 22,
+    backgroundColor: '#0A0816',
+    borderWidth: 1,
+    borderColor: '#341F55',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  customImagePreviewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  customImagePreviewText: {
+    color: '#9080AC',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  customImageActions: {
+    flex: 1,
+    minWidth: 220,
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  customImageName: {
+    color: '#C8BADA',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  customDrinkSavedMessage: {
+    marginTop: 12,
+    color: '#00F0FF',
+    fontSize: 14,
+    lineHeight: 20,
+  },
   searchInput: {
     borderRadius: 18,
     borderWidth: 1,
@@ -3349,6 +3989,22 @@ const styles = StyleSheet.create({
   },
   sourceBadgeText: {
     color: '#FFB300',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  removeDrinkButton: {
+    backgroundColor: '#1A0F2A',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#3A2458',
+  },
+  removeDrinkButtonPressed: {
+    opacity: 0.82,
+  },
+  removeDrinkButtonText: {
+    color: '#D6C8EE',
     fontSize: 12,
     fontWeight: '700',
   },

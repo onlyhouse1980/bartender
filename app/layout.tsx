@@ -1,11 +1,16 @@
 import type { Metadata, Viewport } from "next";
+import { PwaRegistrar } from "@/components/PwaRegistrar";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  applicationName: "BarStart DE",
   title: "BarStart DE",
   description:
     "Lerne die wichtigsten Drinks fuer Deutschland mit Rezepten, Glasempfehlungen, Bar Basics und Quiz.",
   manifest: "/manifest.json",
+  formatDetection: {
+    telephone: false,
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -32,7 +37,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="de" className="h-full">
-      <body>{children}</body>
+      <body>
+        <PwaRegistrar />
+        {children}
+      </body>
     </html>
   );
 }

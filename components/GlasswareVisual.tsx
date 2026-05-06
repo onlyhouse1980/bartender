@@ -1,3 +1,4 @@
+import NextImage, { type ImageLoaderProps } from 'next/image';
 import { Image, Platform } from 'react-native';
 
 import type { GlasswareIllustration } from '../data/bartending';
@@ -18,6 +19,10 @@ const GLASSWARE_IMAGE_URIS: Record<GlasswareIllustration, string> = {
   wine: '/glassware-cutout/wine-glass.png',
 };
 
+function passthroughLoader({ src }: ImageLoaderProps) {
+  return src;
+}
+
 export function GlasswareVisual({
   kind,
   width = 184,
@@ -25,9 +30,13 @@ export function GlasswareVisual({
 }: GlasswareVisualProps) {
   if (Platform.OS === 'web') {
     return (
-      <img
+      <NextImage
+        loader={passthroughLoader}
         src={GLASSWARE_IMAGE_URIS[kind]}
         alt=""
+        width={width}
+        height={height}
+        sizes={`${width}px`}
         style={{
           width,
           height,
@@ -41,6 +50,7 @@ export function GlasswareVisual({
 
   return (
     <Image
+      alt=""
       source={{ uri: GLASSWARE_IMAGE_URIS[kind] }}
       style={{
         width,

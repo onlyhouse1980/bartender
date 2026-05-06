@@ -64,7 +64,7 @@ export type Drink = {
   cachedImageDataUrl?: string;
   imageUrl?: string;
   sourceId?: string;
-  source?: 'seeded' | 'web-import';
+  source?: 'seeded' | 'web-import' | 'custom';
 };
 
 export const lessons = [

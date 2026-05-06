@@ -1,14 +1,17 @@
 {
+  "id": "/",
   "short_name": "BarStart DE",
   "name": "BarStart DE - Bartraining fuer Einsteiger",
   "description": "Lerne die wichtigsten Cocktails fuer Deutschland mit Rezepten in cl, Glasempfehlungen und Zubereitungsschritten.",
   "lang": "de-DE",
+  "dir": "ltr",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "theme_color": "#0B1315",
-  "background_color": "#0B1315",
+  "theme_color": "#08000F",
+  "background_color": "#08000F",
+  "categories": ["education", "food", "lifestyle"],
   "icons": [
     {
       "src": "/logo192.png",

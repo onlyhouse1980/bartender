@@ -1,3 +1,4 @@
+import NextImage, { type ImageLoaderProps } from 'next/image';
 import { Image, Platform, StyleSheet, type ImageResizeMode } from 'react-native';
 
 import type { Drink } from '../data/bartending';
@@ -12,6 +13,10 @@ type DrinkVisualProps = {
 const LOCAL_DRINK_IMAGES: Record<NonNullable<Drink['imageAsset']>, string> = {
   hugo: '/hugo.jpg',
 };
+
+function passthroughLoader({ src }: ImageLoaderProps) {
+  return src;
+}
 
 function toObjectFit(resizeMode: ImageResizeMode): React.CSSProperties['objectFit'] {
   switch (resizeMode) {
@@ -30,109 +35,51 @@ function toObjectFit(resizeMode: ImageResizeMode): React.CSSProperties['objectFi
 }
 
 export function DrinkVisual({ drink, size = 124, resizeMode = 'cover' }: DrinkVisualProps) {
-  if (drink.imageAsset) {
-    if (Platform.OS === 'web') {
-      return (
-        <img
-          src={LOCAL_DRINK_IMAGES[drink.imageAsset]}
-          alt=""
-          style={{
-            width: size,
-            height: size,
-            borderRadius: Math.round(size * 0.23),
-            objectFit: toObjectFit(resizeMode),
-            display: 'block',
-            backgroundColor: '#E7D8C5',
-          }}
-        />
-      );
-    }
+  const uri =
+    drink.imageAsset
+      ? LOCAL_DRINK_IMAGES[drink.imageAsset]
+      : drink.cachedImageDataUrl ?? drink.imageUrl ?? null;
 
+  if (!uri) {
+    return <DrinkArtwork artwork={drink.artwork} size={size} />;
+  }
+
+  if (Platform.OS === 'web') {
     return (
-      <Image
-        source={{ uri: LOCAL_DRINK_IMAGES[drink.imageAsset] }}
-        style={[
-          styles.image,
-          {
-            width: size,
-            height: size,
-            borderRadius: Math.round(size * 0.23),
-          },
-        ]}
-        resizeMode={resizeMode}
+      <NextImage
+        loader={passthroughLoader}
+        src={uri}
+        alt=""
+        width={size}
+        height={size}
+        sizes={`${size}px`}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: Math.round(size * 0.23),
+          objectFit: toObjectFit(resizeMode),
+          display: 'block',
+          backgroundColor: '#E7D8C5',
+        }}
       />
     );
   }
 
-  if (drink.cachedImageDataUrl) {
-    if (Platform.OS === 'web') {
-      return (
-        <img
-          src={drink.cachedImageDataUrl}
-          alt=""
-          style={{
-            width: size,
-            height: size,
-            borderRadius: Math.round(size * 0.23),
-            objectFit: toObjectFit(resizeMode),
-            display: 'block',
-            backgroundColor: '#E7D8C5',
-          }}
-        />
-      );
-    }
-
-    return (
-      <Image
-        source={{ uri: drink.cachedImageDataUrl }}
-        style={[
-          styles.image,
-          {
-            width: size,
-            height: size,
-            borderRadius: Math.round(size * 0.23),
-          },
-        ]}
-        resizeMode={resizeMode}
-      />
-    );
-  }
-
-  if (drink.imageUrl) {
-    if (Platform.OS === 'web') {
-      return (
-        <img
-          src={drink.imageUrl}
-          alt=""
-          style={{
-            width: size,
-            height: size,
-            borderRadius: Math.round(size * 0.23),
-            objectFit: toObjectFit(resizeMode),
-            display: 'block',
-            backgroundColor: '#E7D8C5',
-          }}
-        />
-      );
-    }
-
-    return (
-      <Image
-        source={{ uri: drink.imageUrl }}
-        style={[
-          styles.image,
-          {
-            width: size,
-            height: size,
-            borderRadius: Math.round(size * 0.23),
-          },
-        ]}
-        resizeMode={resizeMode}
-      />
-    );
-  }
-
-  return <DrinkArtwork artwork={drink.artwork} size={size} />;
+  return (
+    <Image
+      alt=""
+      source={{ uri }}
+      style={[
+        styles.image,
+        {
+          width: size,
+          height: size,
+          borderRadius: Math.round(size * 0.23),
+        },
+      ]}
+      resizeMode={resizeMode}
+    />
+  );
 }
 
 const styles = StyleSheet.create({
