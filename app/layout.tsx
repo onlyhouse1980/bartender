@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { PwaRegistrar } from "@/components/PwaRegistrar";
 import "./globals.css";
+import { Analytics } from "@vercel/analytics/next"
 
 export const metadata: Metadata = {
   applicationName: "BarStart DE",
@@ -40,6 +41,7 @@ export default function RootLayout({
       <body>
         <PwaRegistrar />
         {children}
+        <Analytics />
       </body>
     </html>
   );

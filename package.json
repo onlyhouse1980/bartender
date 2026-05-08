@@ -10,13 +10,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "expo": "~54.0.33",
     "expo-linear-gradient": "~15.0.8",
     "next": "16.2.4",
-    "react-native": "0.81.5",
-    "react-native-web": "^0.21.0",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "react-native": "0.81.5",
+    "react-native-web": "^0.21.0"
   },
   "devDependencies": {
     "@types/node": "^20",

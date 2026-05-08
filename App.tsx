@@ -1,6 +1,6 @@
 import { type ChangeEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import NextImage, { type ImageLoaderProps } from 'next/image';
+import NextImage from 'next/image';
 import {
   ActivityIndicator,
   Animated,
@@ -84,10 +84,6 @@ const CORRECT_TIP_REWARD = 5;
 const WRONG_TIP_PENALTY = 3;
 const CORRECT_REVEAL_MS = 1600;
 const CHEAT_REVEAL_MS = 3000;
-
-function passthroughImageLoader({ src }: ImageLoaderProps) {
-  return src;
-}
 
 type AppView = (typeof APP_VIEWS)[number]['key'];
 type LegalPage = 'impressum' | 'privacy';
@@ -1035,7 +1031,6 @@ export default function App() {
               ) : null}
               {imagePreview.kind === 'remote' ? (
                 <NextImage
-                  loader={passthroughImageLoader}
                   src={imagePreview.uri}
                   alt={imagePreview.title}
                   width={previewVisualSize}
@@ -1264,7 +1259,7 @@ export default function App() {
                             style={[styles.imagePreviewButton, styles.glassVisualWrap]}
                             pressedStyle={styles.imagePreviewButtonPressed}
                           >
-                            <GlasswareVisual kind={item.illustration} />
+                            <GlasswareVisual kind={item.illustration} loading="eager" />
                           </ImagePreviewTrigger>
                           <Text style={styles.glassCardTitle}>{item.name}</Text>
                           <Text style={styles.glassCardBody}>{item.use}</Text>
@@ -1286,7 +1281,7 @@ export default function App() {
                             style={[styles.imagePreviewButton, styles.glassVisualWrap]}
                             pressedStyle={styles.imagePreviewButtonPressed}
                           >
-                            <GlasswareVisual kind={item.illustration} />
+                            <GlasswareVisual kind={item.illustration} loading="eager" />
                           </ImagePreviewTrigger>
                           <Text style={styles.glassCardTitle}>{item.name}</Text>
                           <Text style={styles.glassCardBody}>{item.use}</Text>
@@ -1480,11 +1475,28 @@ export default function App() {
                   <View style={styles.customImageRow}>
                     <View style={styles.customImagePreview}>
                       {customDrinkForm.imageDataUrl ? (
-                        <Image
-                          alt=""
-                          source={{ uri: customDrinkForm.imageDataUrl }}
-                          style={styles.customImagePreviewImage}
-                        />
+                        Platform.OS === 'web' ? (
+                          <NextImage
+                            unoptimized
+                            src={customDrinkForm.imageDataUrl}
+                            alt=""
+                            width={108}
+                            height={108}
+                            sizes="108px"
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover',
+                              display: 'block',
+                            }}
+                          />
+                        ) : (
+                          <Image
+                            alt=""
+                            source={{ uri: customDrinkForm.imageDataUrl }}
+                            style={styles.customImagePreviewImage}
+                          />
+                        )
                       ) : (
                         <Text style={styles.customImagePreviewText}>Kein Bild</Text>
                       )}
@@ -1625,11 +1637,29 @@ export default function App() {
                               style={styles.imagePreviewButton}
                               pressedStyle={styles.imagePreviewButtonPressed}
                             >
-                              <Image
-                                alt={result.name}
-                                source={{ uri: result.imageUrl }}
-                                style={styles.searchResultImage}
-                              />
+                              {Platform.OS === 'web' ? (
+                                <NextImage
+                                  src={result.imageUrl}
+                                  alt={result.name}
+                                  width={92}
+                                  height={92}
+                                  sizes="92px"
+                                  style={{
+                                    width: 92,
+                                    height: 92,
+                                    borderRadius: 20,
+                                    objectFit: 'cover',
+                                    display: 'block',
+                                    backgroundColor: '#1A0F2A',
+                                  }}
+                                />
+                              ) : (
+                                <Image
+                                  alt={result.name}
+                                  source={{ uri: result.imageUrl }}
+                                  style={styles.searchResultImage}
+                                />
+                              )}
                             </ImagePreviewTrigger>
                           ) : (
                             <View style={styles.searchResultPlaceholder}>

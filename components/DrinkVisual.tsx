@@ -1,4 +1,4 @@
-import NextImage, { type ImageLoaderProps } from 'next/image';
+import NextImage from 'next/image';
 import { Image, Platform, StyleSheet, type ImageResizeMode } from 'react-native';
 
 import type { Drink } from '../data/bartending';
@@ -13,10 +13,6 @@ type DrinkVisualProps = {
 const LOCAL_DRINK_IMAGES: Record<NonNullable<Drink['imageAsset']>, string> = {
   hugo: '/hugo.jpg',
 };
-
-function passthroughLoader({ src }: ImageLoaderProps) {
-  return src;
-}
 
 function toObjectFit(resizeMode: ImageResizeMode): React.CSSProperties['objectFit'] {
   switch (resizeMode) {
@@ -47,7 +43,7 @@ export function DrinkVisual({ drink, size = 124, resizeMode = 'cover' }: DrinkVi
   if (Platform.OS === 'web') {
     return (
       <NextImage
-        loader={passthroughLoader}
+        unoptimized={uri.startsWith('data:')}
         src={uri}
         alt=""
         width={size}
