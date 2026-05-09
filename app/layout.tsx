@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { PwaRegistrar } from "@/components/PwaRegistrar";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next"
+import { GoogleAnalytics } from "@next/third-parties/google";
 
 export const metadata: Metadata = {
   applicationName: "BarStart DE",
@@ -43,6 +44,7 @@ export default function RootLayout({
         {children}
         <Analytics />
       </body>
+      <GoogleAnalytics gaId="G-QQ53CF8TVX"/>
     </html>
   );
 }

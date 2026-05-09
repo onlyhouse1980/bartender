@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@next/third-parties": "^16.2.6",
     "@vercel/analytics": "^2.0.1",
     "expo": "~54.0.33",
     "expo-linear-gradient": "~15.0.8",
