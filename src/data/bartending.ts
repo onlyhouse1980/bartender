@@ -48,6 +48,23 @@ export type BarBasicsModule = {
   checklist: string[];
 };
 
+export type TechniqueTrackStop = {
+  drinkId: string;
+  level: string;
+  focus: string;
+  challenge: string;
+  successCheck: string;
+};
+
+export type TechniqueTrack = {
+  id: 'stirring' | 'shaking';
+  title: string;
+  subtitle: string;
+  technique: 'Rühren' | 'Shaken';
+  intro: string;
+  stops: TechniqueTrackStop[];
+};
+
 export type Drink = {
   id: string;
   name: string;
@@ -123,6 +140,83 @@ export const barBasicsModules: ReadonlyArray<BarBasicsModule> = [
       'Spirituosen vor dem Build bereitstellen und Reihenfolge im Kopf haben',
       'Soda und Schaumwein immer zuletzt zugeben',
       'Vor dem Abschicken kurz Blick auf Glas, Garnitur und Eisniveau werfen',
+    ],
+  },
+];
+
+export const techniqueTracks: ReadonlyArray<TechniqueTrack> = [
+  {
+    id: 'stirring',
+    title: 'Rühr-Syllabus',
+    subtitle: 'Vom verzeihenden Klassiker zum Endgegner',
+    technique: 'Rühren',
+    intro:
+      'Rühren ist der Bewegungsablauf, der einen Drink kalt macht, ohne ihn zu zerschlagen. Wir beginnen mit einem Rezept, das kleine Fehler verzeiht, und enden dort, wo jede Sekunde Verdünnung schmeckt.',
+    stops: [
+      {
+        drinkId: 'old-fashioned',
+        level: 'Stop 1 · Verzeihend',
+        focus: 'Hier lernst du Temperatur, Verdünnung und das Gefühl im Barlöffel.',
+        challenge:
+          'Whiskey, Zucker und Bitters sind robust genug, um eine etwas zu lange Rührzeit oder zu wenig Eis zu kaschieren. Du kannst dich auf den Rhythmus konzentrieren.',
+        successCheck:
+          'Der Drink ist klar, glatt und kalt. Bitters wirken integriert, nicht aufgesetzt. Eine Orangenzeste passt sauber dazu.',
+      },
+      {
+        drinkId: 'negroni',
+        level: 'Stop 2 · Endgegner',
+        focus: 'Präzision: Verhältnis, Verdünnung und Eisqualität sind hier alles.',
+        challenge:
+          'Drei kräftige, bittere Zutaten zu gleichen Teilen vergeben keinen einzigen Fehler. Zu kurzes Rühren wirkt aggressiv, zu langes wässert den Charakter aus.',
+        successCheck:
+          'Glatte rote Oberfläche, weiche Kanten, keine Spur Wasser am Rand. Die Bitterkeit trägt, ohne den Mund auszutrocknen.',
+      },
+    ],
+  },
+  {
+    id: 'shaking',
+    title: 'Shake-Syllabus',
+    subtitle: 'Vier Stufen zur sauberen Schaumkrone',
+    technique: 'Shaken',
+    intro:
+      'Beim Shaken trainierst du Kraft, Verdünnung und Textur. Jede Stufe bringt eine neue Anforderung dazu: Verdünnung, dann Säurebalance, dann Eiweiß, dann eine stabile Crema.',
+    stops: [
+      {
+        drinkId: 'cosmopolitan',
+        level: 'Stop 1 · Grundlagen',
+        focus: 'Verdünnung und ein klarer Service im Stielglas.',
+        challenge:
+          'Vier Zutaten, klare Kälte, doppeltes Abseihen. Die Farbe soll lebendig pink bleiben, der Drink trocken wirken statt nach Saft.',
+        successCheck:
+          'Glatte Oberfläche im vorgekühlten Martiniglas, keine Eissplitter, klare pinke Tönung ohne Trübung.',
+      },
+      {
+        drinkId: 'margarita',
+        level: 'Stop 2 · Sour-Balance',
+        focus: 'Süße, Säure und Spirit ins Gleichgewicht bringen.',
+        challenge:
+          'Tequila, Triple Sec und Limette müssen sich ergänzen statt sich gegenseitig zu überlagern. Der Salzrand wird Teil der Balance, nicht Deko.',
+        successCheck:
+          'Säure schmeckt frisch, nicht stechend. Mit Salz wird der Drink runder, ohne ihn zu kippen. Coupe ist kalt genug, um die Oberfläche zu halten.',
+      },
+      {
+        drinkId: 'whiskey-sour',
+        level: 'Stop 3 · Eiweiß-Textur',
+        focus: 'Dry Shake, Wet Shake und seidige Schaumkrone.',
+        challenge:
+          'Eiweiß braucht erst Schütteln ohne Eis, damit das Protein Luft fasst. Erst danach folgt der Shake mit Eis für Kälte und Verdünnung. Wer beides mischt, bekommt eine flache Schicht statt einer dichten Krone.',
+        successCheck:
+          'Eine geschlossene, fast spiegelnde Schaumdecke. Bitters lassen sich darauf zeichnen, ohne sofort zu zerlaufen. Darunter ein klarer, kühler Sour.',
+      },
+      {
+        drinkId: 'espresso-martini',
+        level: 'Stop 4 · Stabile Crema',
+        focus: 'Hartes Shaken mit frischem, heißem Espresso.',
+        challenge:
+          'Die Crema entsteht nur, wenn der Espresso frisch und heiß ist und der Shake lang und hart genug. Zu kurze Shakes geben einzelne große Blasen statt einer dichten Schicht. Zu warmer Drink lässt die Crema zerfallen.',
+        successCheck:
+          'Helle, dichte Crema bis zum Glasrand. Drei Kaffeebohnen tragen sicher auf der Oberfläche. Der Drink darunter ist eiskalt, nicht lauwarm.',
+      },
     ],
   },
 ];
@@ -250,7 +344,7 @@ export const drinks: Drink[] = [
   {
     id: 'aperol-spritz',
     name: 'Aperol Spritz',
-    category: 'Spritz & Aperitif',
+    category: 'Einfache Aufbauten',
     technique: 'Aufbauen',
     difficulty: 'Leicht',
     glass: 'Weinglas',
@@ -284,7 +378,7 @@ export const drinks: Drink[] = [
   {
     id: 'hugo',
     name: 'Hugo',
-    category: 'Spritz & Aperitif',
+    category: 'Einfache Aufbauten',
     technique: 'Aufbauen',
     difficulty: 'Leicht',
     glass: 'Weinglas',
@@ -319,7 +413,7 @@ export const drinks: Drink[] = [
   {
     id: 'gin-tonic',
     name: 'Gin Tonic',
-    category: 'Highballs & Longdrinks',
+    category: 'Einfache Aufbauten',
     technique: 'Aufbauen',
     difficulty: 'Leicht',
     glass: 'Highball-Glas',
@@ -351,7 +445,7 @@ export const drinks: Drink[] = [
   {
     id: 'moscow-mule',
     name: 'Moscow Mule',
-    category: 'Highballs & Longdrinks',
+    category: 'Einfache Aufbauten',
     technique: 'Aufbauen',
     difficulty: 'Leicht',
     glass: 'Mule-Becher oder Highball-Glas',
@@ -384,7 +478,7 @@ export const drinks: Drink[] = [
   {
     id: 'mojito',
     name: 'Mojito',
-    category: 'Highballs & Longdrinks',
+    category: 'Komplexe Aufbauten',
     technique: 'Aufbauen',
     difficulty: 'Mittel',
     glass: 'Highball-Glas',
@@ -419,7 +513,7 @@ export const drinks: Drink[] = [
   {
     id: 'caipirinha',
     name: 'Caipirinha',
-    category: 'Highballs & Longdrinks',
+    category: 'Komplexe Aufbauten',
     technique: 'Aufbauen',
     difficulty: 'Mittel',
     glass: 'Rocks-Glas',
@@ -452,7 +546,7 @@ export const drinks: Drink[] = [
   {
     id: 'cuba-libre',
     name: 'Cuba Libre',
-    category: 'Highballs & Longdrinks',
+    category: 'Einfache Aufbauten',
     technique: 'Aufbauen',
     difficulty: 'Leicht',
     glass: 'Highball-Glas',
@@ -484,7 +578,7 @@ export const drinks: Drink[] = [
   {
     id: 'whiskey-sour',
     name: 'Whiskey Sour',
-    category: 'Sours & Zitrus',
+    category: 'Shaken Textur',
     technique: 'Shaken',
     difficulty: 'Mittel',
     glass: 'Rocks-Glas',
@@ -518,7 +612,7 @@ export const drinks: Drink[] = [
   {
     id: 'espresso-martini',
     name: 'Espresso Martini',
-    category: 'Dessert & Digestif',
+    category: 'Shaken Präzision',
     technique: 'Shaken',
     difficulty: 'Mittel',
     glass: 'Coupe',
@@ -550,7 +644,7 @@ export const drinks: Drink[] = [
   {
     id: 'margarita',
     name: 'Margarita',
-    category: 'Sours & Zitrus',
+    category: 'Shaken Balance',
     technique: 'Shaken',
     difficulty: 'Mittel',
     glass: 'Coupe',
@@ -581,7 +675,7 @@ export const drinks: Drink[] = [
   {
     id: 'negroni',
     name: 'Negroni',
-    category: 'Spirituosenbetont',
+    category: 'Rühren Präzision',
     technique: 'Rühren',
     difficulty: 'Leicht',
     glass: 'Rocks-Glas',
@@ -612,7 +706,7 @@ export const drinks: Drink[] = [
   {
     id: 'cosmopolitan',
     name: 'Cosmopolitan',
-    category: 'Sours & Zitrus',
+    category: 'Shaken Grundlagen',
     technique: 'Shaken',
     difficulty: 'Leicht',
     glass: 'Martiniglas',
@@ -643,7 +737,7 @@ export const drinks: Drink[] = [
   {
     id: 'paloma',
     name: 'Paloma',
-    category: 'Highballs & Longdrinks',
+    category: 'Einfache Aufbauten',
     technique: 'Aufbauen',
     difficulty: 'Leicht',
     glass: 'Highball-Glas',
@@ -676,7 +770,7 @@ export const drinks: Drink[] = [
   {
     id: 'pina-colada',
     name: 'Piña Colada',
-    category: 'Tropisch & Party',
+    category: 'Blending Grundlagen',
     technique: 'Blenden',
     difficulty: 'Mittel',
     glass: 'Hurricane-Glas',
@@ -709,7 +803,7 @@ export const drinks: Drink[] = [
   {
     id: 'sex-on-the-beach',
     name: 'Sex on the Beach',
-    category: 'Tropisch & Party',
+    category: 'Komplexe Aufbauten',
     technique: 'Aufbauen',
     difficulty: 'Leicht',
     glass: 'Highball-Glas',
@@ -742,7 +836,7 @@ export const drinks: Drink[] = [
   {
     id: 'white-russian',
     name: 'White Russian',
-    category: 'Dessert & Digestif',
+    category: 'Komplexe Aufbauten',
     technique: 'Aufbauen',
     difficulty: 'Leicht',
     glass: 'Rocks-Glas',
@@ -773,7 +867,7 @@ export const drinks: Drink[] = [
   {
     id: 'tequila-sunrise',
     name: 'Tequila Sunrise',
-    category: 'Tropisch & Party',
+    category: 'Komplexe Aufbauten',
     technique: 'Aufbauen',
     difficulty: 'Leicht',
     glass: 'Highball-Glas',
@@ -805,7 +899,7 @@ export const drinks: Drink[] = [
   {
     id: 'mai-tai',
     name: 'Mai Tai',
-    category: 'Tropisch & Party',
+    category: 'Shaken Balance',
     technique: 'Shaken',
     difficulty: 'Mittel',
     glass: 'Rocks-Glas',
@@ -839,7 +933,7 @@ export const drinks: Drink[] = [
   {
     id: 'old-fashioned',
     name: 'Old Fashioned',
-    category: 'Spirituosenbetont',
+    category: 'Rühren Grundlagen',
     technique: 'Rühren',
     difficulty: 'Leicht',
     glass: 'Rocks-Glas',
@@ -866,6 +960,146 @@ export const drinks: Drink[] = [
       ice: true,
     },
     imageUrl: 'https://www.thecocktaildb.com/images/media/drink/vrwquq1478252802.jpg',
+  },
+  {
+    id: 'virgin-mojito',
+    name: 'Virgin Mojito',
+    category: 'Spirit-Free/Mocktails',
+    technique: 'Aufbauen',
+    difficulty: 'Leicht',
+    glass: 'Highball-Glas',
+    garnish: 'Minzzweig und Limettenspalte',
+    summary: 'Ein erfrischender, nicht-alkoholischer Mojito, der die gleichen Techniken wie der Originaldrink erfordert.',
+    germanNote: 'Perfekt für Gäste, die einen klassischen Drink ohne Alkohol wollen. Die Minze muss frisch und nicht zerdrückt sein.',
+    proTip: 'Klopfe die Minze sanft an, um das Aroma freizusetzen, aber vermeide es, sie zu zerquetschen.',
+    ingredients: [
+      { amount: '3 cl', item: 'Limettensaft' },
+      { amount: '2 cl', item: 'Zuckersirup' },
+      { amount: '12 cl', item: 'Sodawasser' },
+      { amount: '1 Zweig', item: 'Minze' },
+      { amount: '1 Spalte', item: 'Limette' },
+    ],
+    method: [
+      'Fülle ein Highball-Glas mit Eiswürfeln.',
+      'Gib Limettensaft und Zuckersirup ins Glas.',
+      'Minze sanft zwischen den Händen anklopfen und ins Glas geben.',
+      'Mit Sodawasser auffüllen und vorsichtig umrühren.',
+      'Mit einer Limettenspalte und Minzzweig garnieren.',
+    ],
+    artwork: {
+      background: ['#0E3B3A', '#7FB09B'],
+      liquid: ['#E6F5C0', '#C9E686'],
+      glassStyle: 'highball',
+      garnish: 'mint',
+      bubbles: true,
+      ice: true,
+      straw: true,
+    },
+    imageUrl: 'https://www.thecocktaildb.com/images/media/drink/rptuxy1472669372.jpg',
+  },
+  {
+    id: 'virgin-pina-colada',
+    name: 'Virgin Piña Colada',
+    category: 'Spirit-Free/Mocktails',
+    technique: 'Blenden',
+    difficulty: 'Leicht',
+    glass: 'Hurricane-Glas',
+    garnish: 'Ananasstück und Kirsche',
+    summary: 'Ein cremiger, tropischer Mocktail, der die gleichen Mixtechniken wie die alkoholische Version erfordert.',
+    germanNote: 'Ideal für Sommerpartys oder als kinderfreundliche Alternative. Die Konsistenz sollte cremig und nicht zu dick sein.',
+    proTip: 'Verwende frische Ananas für das beste Aroma. Wenn der Drink zu dick wird, etwas mehr Ananassaft hinzufügen.',
+    ingredients: [
+      { amount: '9 cl', item: 'Ananassaft' },
+      { amount: '6 cl', item: 'Kokosmilch' },
+      { amount: '3 cl', item: 'Sahne' },
+      { amount: '1 Stück', item: 'Ananas' },
+      { amount: '1 Stück', item: 'Kirsche' },
+    ],
+    method: [
+      'Alle Zutaten mit Eis in einen Blender geben.',
+      'Auf hoher Stufe mixen, bis die Konsistenz cremig und glatt ist.',
+      'In ein Hurricane-Glas gießen.',
+      'Mit Ananasstück und Kirsche garnieren.',
+    ],
+    artwork: {
+      background: ['#2D5A3D', '#F4E87C'],
+      liquid: ['#FFF8A8', '#F4E87C'],
+      glassStyle: 'hurricane',
+      garnish: 'pineapple',
+      ice: true,
+      foam: true,
+      straw: true,
+    },
+    imageUrl: 'https://www.thecocktaildb.com/images/media/drink/yhrxmt1493068675.jpg',
+  },
+  {
+    id: 'non-alcoholic-spritz',
+    name: 'Non-Alcoholic Spritz',
+    category: 'Spirit-Free/Mocktails',
+    technique: 'Aufbauen',
+    difficulty: 'Leicht',
+    glass: 'Weinglas',
+    garnish: 'Orangenscheibe',
+    summary: 'Eine spirit-freie Version des beliebten Spritz, die die gleichen Service-Standards erfordert.',
+    germanNote: 'Perfekt für Gäste, die einen erfrischenden Drink ohne Alkohol wollen. Die Kohlensäure muss lebendig bleiben.',
+    proTip: 'Verwende hochwertigen, nicht-alkoholischen Aperol-Ersatz oder Orangenbitter für Authentizität.',
+    ingredients: [
+      { amount: '9 cl', item: 'Nicht-alkoholischer Prosecco' },
+      { amount: '6 cl', item: 'Nicht-alkoholischer Aperol' },
+      { amount: '3 cl', item: 'Sodawasser' },
+      { amount: '1 Scheibe', item: 'Orange' },
+    ],
+    method: [
+      'Fülle ein Weinglas mit Eiswürfeln.',
+      'Gieße zuerst den nicht-alkoholischen Prosecco, dann den Aperol ein.',
+      'Mit Sodawasser auffüllen und einmal vorsichtig mit dem Barlöffel anheben.',
+      'Mit einer Orangenscheibe garnieren.',
+    ],
+    artwork: {
+      background: ['#163A3B', '#D26A2E'],
+      liquid: ['#FF8A2A', '#F0552D'],
+      glassStyle: 'wine',
+      garnish: 'orange',
+      bubbles: true,
+      ice: true,
+      straw: true,
+    },
+    imageUrl: 'https://www.thecocktaildb.com/images/media/drink/wyrsxu1441554538.jpg',
+  },
+  {
+    id: 'ginger-lemon-fizz',
+    name: 'Ginger Lemon Fizz',
+    category: 'Spirit-Free/Mocktails',
+    technique: 'Aufbauen',
+    difficulty: 'Leicht',
+    glass: 'Highball-Glas',
+    garnish: 'Limettenspalte',
+    summary: 'Ein scharf-saurer Mocktail mit Ingwer, der Präzision in der Balance erfordert.',
+    germanNote: 'Gut für Gäste, die etwas Schärfe wollen. Der Ingwer sollte spürbar aber nicht überwältigend sein.',
+    proTip: 'Verwende frischen Ingwersaft für das beste Aroma. Wenn zu scharf, mit mehr Limettensaft ausbalancieren.',
+    ingredients: [
+      { amount: '4 cl', item: 'Limettensaft' },
+      { amount: '2 cl', item: 'Ingwersirup' },
+      { amount: '1 cl', item: 'Zuckersirup' },
+      { amount: '10 cl', item: 'Sodawasser' },
+      { amount: '1 Spalte', item: 'Limette' },
+    ],
+    method: [
+      'Fülle ein Highball-Glas mit Eiswürfeln.',
+      'Gib Limettensaft, Ingwersirup und Zuckersirup ins Glas.',
+      'Mit Sodawasser auffüllen und vorsichtig umrühren.',
+      'Mit einer Limettenspalte garnieren.',
+    ],
+    artwork: {
+      background: ['#2D4A3E', '#F5E6A3'],
+      liquid: ['#F5E6A3', '#D4B483'],
+      glassStyle: 'highball',
+      garnish: 'lime',
+      bubbles: true,
+      ice: true,
+      straw: true,
+    },
+    imageUrl: 'https://www.thecocktaildb.com/images/media/drink/rrqrkl1477144153.jpg',
   },
 ];
 

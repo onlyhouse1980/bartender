@@ -29,6 +29,7 @@ import {
   drinks,
   glasswareGuide,
   lessons,
+  techniqueTracks,
   type Drink,
   type DrinkArtworkSpec,
   type GlasswareIllustration,
@@ -1983,6 +1984,100 @@ export default function App() {
                   </View>
                 ))}
               </View>
+
+              <View style={styles.techniqueTrackHeader}>
+                <Text style={styles.techniqueTrackHeaderEyebrow}>Techniktraining</Text>
+                <Text style={styles.techniqueTrackHeaderTitle}>
+                  Rühren & Shaken Schritt für Schritt
+                </Text>
+                <Text style={styles.techniqueTrackHeaderBody}>
+                  Zwei Lernpfade, an denen du die zwei wichtigsten Bewegungen hinter der Bar
+                  trainierst. Jede Stufe baut auf der vorherigen auf - tippe auf einen Drink, um
+                  direkt das Rezept zu öffnen.
+                </Text>
+              </View>
+
+              <View style={styles.techniqueTrackList}>
+                {techniqueTracks.map((track) => (
+                  <View key={track.id} style={styles.techniqueTrackCard}>
+                    <View style={styles.techniqueTrackTitleRow}>
+                      <Text style={styles.techniqueTrackEyebrow}>{track.technique}</Text>
+                      <Text style={styles.techniqueTrackStepCount}>
+                        {track.stops.length} Stufen
+                      </Text>
+                    </View>
+                    <Text style={styles.techniqueTrackTitle}>{track.title}</Text>
+                    <Text style={styles.techniqueTrackSubtitle}>{track.subtitle}</Text>
+                    <Text style={styles.techniqueTrackIntro}>{track.intro}</Text>
+
+                    <View style={styles.techniqueTrackStops}>
+                      {track.stops.map((stop, index) => {
+                        const drink = allDrinks.find((entry) => entry.id === stop.drinkId);
+                        const isLast = index === track.stops.length - 1;
+
+                        return (
+                          <View key={stop.drinkId} style={styles.techniqueStopWrap}>
+                            <View style={styles.techniqueStopRail}>
+                              <View style={styles.techniqueStopBadge}>
+                                <Text style={styles.techniqueStopBadgeText}>{index + 1}</Text>
+                              </View>
+                              {!isLast ? <View style={styles.techniqueStopConnector} /> : null}
+                            </View>
+
+                            <Pressable
+                              onPress={() => {
+                                if (drink) {
+                                  focusDrink(drink);
+                                }
+                              }}
+                              disabled={!drink}
+                              style={({ pressed }) => [
+                                styles.techniqueStopCard,
+                                pressed && drink && styles.techniqueStopCardPressed,
+                              ]}
+                            >
+                              <Text style={styles.techniqueStopLevel}>{stop.level}</Text>
+                              <Text style={styles.techniqueStopDrinkName}>
+                                {drink ? drink.name : stop.drinkId}
+                              </Text>
+                              {drink ? (
+                                <Text style={styles.techniqueStopDrinkMeta}>
+                                  {drink.glass} · {drink.garnish}
+                                </Text>
+                              ) : null}
+
+                              <View style={styles.techniqueStopBlock}>
+                                <Text style={styles.techniqueStopBlockLabel}>Fokus</Text>
+                                <Text style={styles.techniqueStopBlockBody}>{stop.focus}</Text>
+                              </View>
+                              <View style={styles.techniqueStopBlock}>
+                                <Text style={styles.techniqueStopBlockLabel}>
+                                  Herausforderung
+                                </Text>
+                                <Text style={styles.techniqueStopBlockBody}>{stop.challenge}</Text>
+                              </View>
+                              <View style={styles.techniqueStopBlock}>
+                                <Text style={styles.techniqueStopBlockLabel}>
+                                  So weißt du, dass es sitzt
+                                </Text>
+                                <Text style={styles.techniqueStopBlockBody}>
+                                  {stop.successCheck}
+                                </Text>
+                              </View>
+
+                              {drink ? (
+                                <Text style={styles.techniqueStopHint}>
+                                  Tippen für Rezept und Schritte →
+                                </Text>
+                              ) : null}
+                            </Pressable>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
+                ))}
+              </View>
             </View>
           </>
         ) : (
@@ -3691,6 +3786,174 @@ const styles = StyleSheet.create({
     color: '#C8BADA',
     fontSize: 14,
     lineHeight: 21,
+  },
+  techniqueTrackHeader: {
+    marginTop: 28,
+  },
+  techniqueTrackHeaderEyebrow: {
+    color: '#FFB300',
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+  },
+  techniqueTrackHeaderTitle: {
+    marginTop: 8,
+    color: '#F5F0FF',
+    fontSize: 23,
+    lineHeight: 28,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+    fontFamily: Platform.select({ ios: 'Georgia', default: undefined }),
+  },
+  techniqueTrackHeaderBody: {
+    marginTop: 8,
+    color: '#A898BC',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  techniqueTrackList: {
+    marginTop: 16,
+    gap: 16,
+  },
+  techniqueTrackCard: {
+    borderRadius: 24,
+    padding: 18,
+    backgroundColor: '#100D1F',
+    borderWidth: 1,
+    borderColor: '#2D1A4A',
+  },
+  techniqueTrackTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  techniqueTrackEyebrow: {
+    color: '#00F0FF',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  techniqueTrackStepCount: {
+    color: '#9080AC',
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  techniqueTrackTitle: {
+    marginTop: 8,
+    color: '#F5F0FF',
+    fontSize: 22,
+    lineHeight: 26,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+    fontFamily: Platform.select({ ios: 'Georgia', default: undefined }),
+  },
+  techniqueTrackSubtitle: {
+    marginTop: 4,
+    color: '#FFB800',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  techniqueTrackIntro: {
+    marginTop: 10,
+    color: '#C5B8DA',
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  techniqueTrackStops: {
+    marginTop: 16,
+  },
+  techniqueStopWrap: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 12,
+  },
+  techniqueStopRail: {
+    width: 32,
+    alignItems: 'center',
+  },
+  techniqueStopBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#CC0055',
+    borderWidth: 1,
+    borderColor: '#E6006B',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  techniqueStopBadgeText: {
+    color: '#F4EEE4',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  techniqueStopConnector: {
+    flex: 1,
+    width: 2,
+    backgroundColor: '#2D1A4A',
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  techniqueStopCard: {
+    flex: 1,
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 12,
+    backgroundColor: '#0B091A',
+    borderWidth: 1,
+    borderColor: '#2F1A50',
+  },
+  techniqueStopCardPressed: {
+    opacity: 0.92,
+    borderColor: '#6600BB',
+  },
+  techniqueStopLevel: {
+    color: '#FFB300',
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  techniqueStopDrinkName: {
+    marginTop: 4,
+    color: '#F5F0FF',
+    fontSize: 19,
+    lineHeight: 24,
+    fontWeight: '700',
+  },
+  techniqueStopDrinkMeta: {
+    marginTop: 2,
+    color: '#9080AC',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  techniqueStopBlock: {
+    marginTop: 10,
+  },
+  techniqueStopBlockLabel: {
+    color: '#00F0FF',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+  },
+  techniqueStopBlockBody: {
+    marginTop: 4,
+    color: '#C8BADA',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  techniqueStopHint: {
+    marginTop: 12,
+    color: '#FFB300',
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
   searchPanel: {
     marginTop: 16,
