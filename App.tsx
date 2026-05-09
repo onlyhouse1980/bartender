@@ -1263,6 +1263,18 @@ export default function App() {
                           </ImagePreviewTrigger>
                           <Text style={styles.glassCardTitle}>{item.name}</Text>
                           <Text style={styles.glassCardBody}>{item.use}</Text>
+                          <View style={styles.glassCardSection}>
+                            <Text style={styles.glassCardSectionTitle}>✓ Konsistenz-Checks:</Text>
+                            {item.consistencyChecks.map((check, index) => (
+                              <Text key={index} style={styles.glassCardListItem}>• {check}</Text>
+                            ))}
+                          </View>
+                          <View style={styles.glassCardSection}>
+                            <Text style={styles.glassCardSectionTitle}>⚠ Häufige Fehler:</Text>
+                            {item.pitfalls.map((pitfall, index) => (
+                              <Text key={index} style={styles.glassCardListItem}>• {pitfall}</Text>
+                            ))}
+                          </View>
                         </View>
                       ))}
                     </View>
@@ -1285,6 +1297,18 @@ export default function App() {
                           </ImagePreviewTrigger>
                           <Text style={styles.glassCardTitle}>{item.name}</Text>
                           <Text style={styles.glassCardBody}>{item.use}</Text>
+                          <View style={styles.glassCardSection}>
+                            <Text style={styles.glassCardSectionTitle}>✓ Konsistenz-Checks:</Text>
+                            {item.consistencyChecks.map((check, index) => (
+                              <Text key={index} style={styles.glassCardListItem}>• {check}</Text>
+                            ))}
+                          </View>
+                          <View style={styles.glassCardSection}>
+                            <Text style={styles.glassCardSectionTitle}>⚠ Häufige Fehler:</Text>
+                            {item.pitfalls.map((pitfall, index) => (
+                              <Text key={index} style={styles.glassCardListItem}>• {pitfall}</Text>
+                            ))}
+                          </View>
                         </View>
                       ))}
                     </ScrollView>
@@ -3584,6 +3608,22 @@ const styles = StyleSheet.create({
     color: '#B8A9CC',
     fontSize: 14,
     lineHeight: 22,
+    marginBottom: 12,
+  },
+  glassCardSection: {
+    marginBottom: 12,
+  },
+  glassCardSectionTitle: {
+    color: '#FFB800',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  glassCardListItem: {
+    color: '#C5B8DA',
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 2,
   },
   lessonRow: {
     paddingTop: 16,

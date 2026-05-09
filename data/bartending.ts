@@ -38,6 +38,8 @@ export type GlasswareGuideItem = {
   name: string;
   illustration: GlasswareIllustration;
   use: string;
+  consistencyChecks: string[];
+  pitfalls: string[];
 };
 
 export type BarBasicsModule = {
@@ -129,37 +131,118 @@ export const glasswareGuide: ReadonlyArray<GlasswareGuideItem> = [
   {
     name: 'Highball-Glas',
     illustration: 'highball',
-    use: 'Hoch, gut gekühlt und voller Eis für Longdrinks wie Mojito, Paloma und Gin Tonic.',
+    use: 'Hohes, schlankes Glas für Longdrinks und Spritz-Varianten. Fülle immer zuerst mit frischem Eis - das Glas muss bis zum Rand gefüllt sein.',
+    consistencyChecks: [
+      'Glasrand vor dem Service auf Fingerabdrücke prüfen',
+      'Eiswürfel müssen das Glas zu ¾ füllen',
+      'Soda und Schaumwein immer zuletzt zugeben',
+      'Garnitur darf nicht die Trinköffnung blockieren'
+    ],
+    pitfalls: [
+      'Altes Schmelzwasser statt frischem Eis führt zu schwachem Drink',
+      'Zu wenig Eis lässt den Drink zu schnell warm werden',
+      'Soda zuerst zugeben lässt die Kohlensäure entweichen'
+    ],
   },
   {
     name: 'Rocks-Glas',
     illustration: 'rocks',
-    use: 'Kurzer Tumbler für spirituosenbetonte Drinks oder Crushed-Ice-Serves wie Negroni und Caipirinha.',
+    use: 'Kurzes, robustes Glas für spirituosenbetonte Drinks. Ein großer Eiswürfel ist Pflicht - er schmilzt langsamer und verhindert Überverdünnung.',
+    consistencyChecks: [
+      'Glas muss vorgekühlt sein, bevor der Drink eingegossen wird',
+      'Ein einzelner, großer Eiswürfel (nicht mehrere kleine)',
+      'Drink sollte das Eis nicht überragen',
+      'Garnitur muss sichtbar und frisch aussehen'
+    ],
+    pitfalls: [
+      'Zimmerwarmes Glas lässt den Drink sofort wärmer werden',
+      'Zu viele kleine Eiswürfel führen zu schneller Verwässerung',
+      'Überfüllen lässt den Drink überlaufen und unprofessionell aussehen'
+    ],
   },
   {
     name: 'Weinglas',
     illustration: 'wine',
-    use: 'Große Schale für Spritz-Drinks, damit Schaumwein, Soda, Garnitur und Eis genug Raum haben.',
+    use: 'Große Schale für Spritz-Drinks und Schaumweine. Kühle die Schale vorab, um Kohlensäure zu erhalten und den Drink länger sprudelnd zu halten.',
+    consistencyChecks: [
+      'Schale muss vorgekühlt sein (im Gefrierfach oder Eiswasser)',
+      'Eiswürfel bis zur Schalenwölbung füllen',
+      'Schaumwein immer zuerst eingießen',
+      'Orangenscheibe muss die Schale berühren'
+    ],
+    pitfalls: [
+      'Warme Schale lässt Kohlensäure sofort entweichen',
+      'Zu wenig Eis lässt den Drink schnell warm und flau werden',
+      'Soda zuerst zugeben zerstört die Perlage des Schaumweins'
+    ],
   },
   {
     name: 'Coupe',
     illustration: 'coupe',
-    use: 'Elegantes Stielglas für geshakte Drinks ohne Eis, etwa Margarita oder Espresso Martini.',
+    use: 'Elegantes Stielglas für geshakte Drinks ohne Eis. Präzise Verdünnung ist kritisch - ohne Eis gibt es nichts, das schlampige Mengen kaschiert.',
+    consistencyChecks: [
+      'Glas muss eiskalt sein (im Gefrierfach vorgekühlt)',
+      'Kein Eis im Glas - der Drink kommt direkt aus dem Shaker',
+      'Perfekte Verdünnung durch korrekte Shake-Zeit',
+      'Glasrand muss makellos sauber sein'
+    ],
+    pitfalls: [
+      'Zimmerwarmes Glas lässt den Drink sofort wärmer werden',
+      'Zu kurzes Shaken führt zu überkonzentriertem Drink',
+      'Zu langes Shaken lässt den Drink wässrig werden',
+      'Fingerabdrücke auf dem Stiel wirken unprofessionell'
+    ],
   },
   {
     name: 'Martiniglas',
     illustration: 'martini',
-    use: 'Markantes Stielglas für geradlinige Klassiker wie den Cosmopolitan ohne Eis im Glas.',
+    use: 'Markantes Stielglas für klare, geradlinige Klassiker ohne Eis. Die schmale Öffnung verhindert schnelle Erwärmung und Aromaverlust.',
+    consistencyChecks: [
+      'Glas muss tiefgefroren sein für perfekte Kälte',
+      'Drink direkt aus dem Shaker ohne Eis abseihen',
+      'Garnitur muss die schmale Öffnung nicht blockieren',
+      'Glas muss absolut sauber und trocken sein'
+    ],
+    pitfalls: [
+      'Raumtemperatur lässt den Drink in Sekunden wärmer werden',
+      'Eis im Glas führt zu schneller Verwässerung',
+      'Schmutzige Gläser ruinieren die klare Optik',
+      'Falsche Garnitur kann die Öffnung verstopfen'
+    ],
   },
   {
     name: 'Mule-Becher',
     illustration: 'mule',
-    use: 'Isolierter Becher für Ginger-Beer-Drinks; ein Highball-Glas ist in vielen Bars eine gute Alternative.',
+    use: 'Isolierter Kupferbecher für Ginger-Beer-Drinks. Hält den Drink länger kalt und verhindert, dass die Hand den Inhalt erwärmt.',
+    consistencyChecks: [
+      'Becher muss vorgekühlt sein (im Gefrierfach)',
+      'Eis bis zum Rand für maximale Kühlleistung',
+      'Ginger Beer immer zuletzt für lebendige Kohlensäure',
+      'Limettenecke muss gut sichtbar sein'
+    ],
+    pitfalls: [
+      'Wärme Becher lässt den Drink schnell lauwarm werden',
+      'Zu wenig Eis führt zu schneller Erwärmung',
+      'Ginger Beer zuerst zugeben lässt Kohlensäure entweichen',
+      'Falsche Garnitur verdeckt die professionelle Präsentation'
+    ],
   },
   {
     name: 'Hurricane-Glas',
     illustration: 'hurricane',
-    use: 'Geschwungenes Tropenglas für geblendete oder saftreiche Drinks wie Piña Colada.',
+    use: 'Geschwungenes Tropenglas für geblendete Drinks. Die weite Öffnung ermöglicht cremige Texturen und großzügige Garnitur.',
+    consistencyChecks: [
+      'Glasrand muss sauber und trocken sein',
+      'Geblendete Drinks müssen perfekt cremig sein',
+      'Garnitur muss üppig und frisch aussehen',
+      'Glas sollte zu ¾ gefüllt sein für optimale Präsentation'
+    ],
+    pitfalls: [
+      'Schmutziger Rand wirkt sofort unprofessionell',
+      'Zu flüssige Konsistenz zeigt Blender-Probleme',
+      'Welke Garnitur lässt den Drink alt aussehen',
+      'Überfüllen führt zu unkontrolliertem Überlaufen'
+    ],
   },
 ];
 
@@ -783,6 +866,146 @@ export const drinks: Drink[] = [
       ice: true,
     },
     imageUrl: 'https://www.thecocktaildb.com/images/media/drink/vrwquq1478252802.jpg',
+  },
+  {
+    id: 'virgin-mojito',
+    name: 'Virgin Mojito',
+    category: 'Spirit-Free/Mocktails',
+    technique: 'Aufbauen',
+    difficulty: 'Leicht',
+    glass: 'Highball-Glas',
+    garnish: 'Minzzweig und Limettenspalte',
+    summary: 'Ein erfrischender, nicht-alkoholischer Mojito, der die gleichen Techniken wie der Originaldrink erfordert.',
+    germanNote: 'Perfekt für Gäste, die einen klassischen Drink ohne Alkohol wollen. Die Minze muss frisch und nicht zerdrückt sein.',
+    proTip: 'Klopfe die Minze sanft an, um das Aroma freizusetzen, aber vermeide es, sie zu zerquetschen.',
+    ingredients: [
+      { amount: '3 cl', item: 'Limettensaft' },
+      { amount: '2 cl', item: 'Zuckersirup' },
+      { amount: '12 cl', item: 'Sodawasser' },
+      { amount: '1 Zweig', item: 'Minze' },
+      { amount: '1 Spalte', item: 'Limette' },
+    ],
+    method: [
+      'Fülle ein Highball-Glas mit Eiswürfeln.',
+      'Gib Limettensaft und Zuckersirup ins Glas.',
+      'Minze sanft zwischen den Händen anklopfen und ins Glas geben.',
+      'Mit Sodawasser auffüllen und vorsichtig umrühren.',
+      'Mit einer Limettenspalte und Minzzweig garnieren.',
+    ],
+    artwork: {
+      background: ['#0E3B3A', '#7FB09B'],
+      liquid: ['#E6F5C0', '#C9E686'],
+      glassStyle: 'highball',
+      garnish: 'mint',
+      bubbles: true,
+      ice: true,
+      straw: true,
+    },
+    imageUrl: 'https://www.thecocktaildb.com/images/media/drink/rptuxy1472669372.jpg',
+  },
+  {
+    id: 'virgin-pina-colada',
+    name: 'Virgin Piña Colada',
+    category: 'Spirit-Free/Mocktails',
+    technique: 'Blenden',
+    difficulty: 'Leicht',
+    glass: 'Hurricane-Glas',
+    garnish: 'Ananasstück und Kirsche',
+    summary: 'Ein cremiger, tropischer Mocktail, der die gleichen Mixtechniken wie die alkoholische Version erfordert.',
+    germanNote: 'Ideal für Sommerpartys oder als kinderfreundliche Alternative. Die Konsistenz sollte cremig und nicht zu dick sein.',
+    proTip: 'Verwende frische Ananas für das beste Aroma. Wenn der Drink zu dick wird, etwas mehr Ananassaft hinzufügen.',
+    ingredients: [
+      { amount: '9 cl', item: 'Ananassaft' },
+      { amount: '6 cl', item: 'Kokosmilch' },
+      { amount: '3 cl', item: 'Sahne' },
+      { amount: '1 Stück', item: 'Ananas' },
+      { amount: '1 Stück', item: 'Kirsche' },
+    ],
+    method: [
+      'Alle Zutaten mit Eis in einen Blender geben.',
+      'Auf hoher Stufe mixen, bis die Konsistenz cremig und glatt ist.',
+      'In ein Hurricane-Glas gießen.',
+      'Mit Ananasstück und Kirsche garnieren.',
+    ],
+    artwork: {
+      background: ['#2D5A3D', '#F4E87C'],
+      liquid: ['#FFF8A8', '#F4E87C'],
+      glassStyle: 'hurricane',
+      garnish: 'pineapple',
+      ice: true,
+      foam: true,
+      straw: true,
+    },
+    imageUrl: 'https://www.thecocktaildb.com/images/media/drink/yhrxmt1493068675.jpg',
+  },
+  {
+    id: 'non-alcoholic-spritz',
+    name: 'Non-Alcoholic Spritz',
+    category: 'Spirit-Free/Mocktails',
+    technique: 'Aufbauen',
+    difficulty: 'Leicht',
+    glass: 'Weinglas',
+    garnish: 'Orangenscheibe',
+    summary: 'Eine spirit-freie Version des beliebten Spritz, die die gleichen Service-Standards erfordert.',
+    germanNote: 'Perfekt für Gäste, die einen erfrischenden Drink ohne Alkohol wollen. Die Kohlensäure muss lebendig bleiben.',
+    proTip: 'Verwende hochwertigen, nicht-alkoholischen Aperol-Ersatz oder Orangenbitter für Authentizität.',
+    ingredients: [
+      { amount: '9 cl', item: 'Nicht-alkoholischer Prosecco' },
+      { amount: '6 cl', item: 'Nicht-alkoholischer Aperol' },
+      { amount: '3 cl', item: 'Sodawasser' },
+      { amount: '1 Scheibe', item: 'Orange' },
+    ],
+    method: [
+      'Fülle ein Weinglas mit Eiswürfeln.',
+      'Gieße zuerst den nicht-alkoholischen Prosecco, dann den Aperol ein.',
+      'Mit Sodawasser auffüllen und einmal vorsichtig mit dem Barlöffel anheben.',
+      'Mit einer Orangenscheibe garnieren.',
+    ],
+    artwork: {
+      background: ['#163A3B', '#D26A2E'],
+      liquid: ['#FF8A2A', '#F0552D'],
+      glassStyle: 'wine',
+      garnish: 'orange',
+      bubbles: true,
+      ice: true,
+      straw: true,
+    },
+    imageUrl: 'https://www.thecocktaildb.com/images/media/drink/wyrsxu1441554538.jpg',
+  },
+  {
+    id: 'ginger-lemon-fizz',
+    name: 'Ginger Lemon Fizz',
+    category: 'Spirit-Free/Mocktails',
+    technique: 'Aufbauen',
+    difficulty: 'Leicht',
+    glass: 'Highball-Glas',
+    garnish: 'Limettenspalte',
+    summary: 'Ein scharf-saurer Mocktail mit Ingwer, der Präzision in der Balance erfordert.',
+    germanNote: 'Gut für Gäste, die etwas Schärfe wollen. Der Ingwer sollte spürbar aber nicht überwältigend sein.',
+    proTip: 'Verwende frischen Ingwersaft für das beste Aroma. Wenn zu scharf, mit mehr Limettensaft ausbalancieren.',
+    ingredients: [
+      { amount: '4 cl', item: 'Limettensaft' },
+      { amount: '2 cl', item: 'Ingwersirup' },
+      { amount: '1 cl', item: 'Zuckersirup' },
+      { amount: '10 cl', item: 'Sodawasser' },
+      { amount: '1 Spalte', item: 'Limette' },
+    ],
+    method: [
+      'Fülle ein Highball-Glas mit Eiswürfeln.',
+      'Gib Limettensaft, Ingwersirup und Zuckersirup ins Glas.',
+      'Mit Sodawasser auffüllen und vorsichtig umrühren.',
+      'Mit einer Limettenspalte garnieren.',
+    ],
+    artwork: {
+      background: ['#2D4A3E', '#F5E6A3'],
+      liquid: ['#F5E6A3', '#D4B483'],
+      glassStyle: 'highball',
+      garnish: 'lime',
+      bubbles: true,
+      ice: true,
+      straw: true,
+    },
+    imageUrl: 'https://www.thecocktaildb.com/images/media/drink/rrqrkl1477144153.jpg',
   },
 ];
 

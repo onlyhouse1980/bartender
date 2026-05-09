@@ -38,6 +38,8 @@ export type GlasswareGuideItem = {
   name: string;
   illustration: GlasswareIllustration;
   use: string;
+  consistencyChecks: string[];
+  pitfalls: string[];
 };
 
 export type BarBasicsModule = {
@@ -129,37 +131,118 @@ export const glasswareGuide: ReadonlyArray<GlasswareGuideItem> = [
   {
     name: 'Highball-Glas',
     illustration: 'highball',
-    use: 'Hoch, gut gekühlt und voller Eis für Longdrinks wie Mojito, Paloma und Gin Tonic.',
+    use: 'Hohes, schlankes Glas für Longdrinks und Spritz-Varianten. Fülle immer zuerst mit frischem Eis - das Glas muss bis zum Rand gefüllt sein.',
+    consistencyChecks: [
+      'Glasrand vor dem Service auf Fingerabdrücke prüfen',
+      'Eiswürfel müssen das Glas zu ¾ füllen',
+      'Soda und Schaumwein immer zuletzt zugeben',
+      'Garnitur darf nicht die Trinköffnung blockieren'
+    ],
+    pitfalls: [
+      'Altes Schmelzwasser statt frischem Eis führt zu schwachem Drink',
+      'Zu wenig Eis lässt den Drink zu schnell warm werden',
+      'Soda zuerst zugeben lässt die Kohlensäure entweichen'
+    ],
   },
   {
     name: 'Rocks-Glas',
     illustration: 'rocks',
-    use: 'Kurzer Tumbler für spirituosenbetonte Drinks oder Crushed-Ice-Serves wie Negroni und Caipirinha.',
+    use: 'Kurzes, robustes Glas für spirituosenbetonte Drinks. Ein großer Eiswürfel ist Pflicht - er schmilzt langsamer und verhindert Überverdünnung.',
+    consistencyChecks: [
+      'Glas muss vorgekühlt sein, bevor der Drink eingegossen wird',
+      'Ein einzelner, großer Eiswürfel (nicht mehrere kleine)',
+      'Drink sollte das Eis nicht überragen',
+      'Garnitur muss sichtbar und frisch aussehen'
+    ],
+    pitfalls: [
+      'Zimmerwarmes Glas lässt den Drink sofort wärmer werden',
+      'Zu viele kleine Eiswürfel führen zu schneller Verwässerung',
+      'Überfüllen lässt den Drink überlaufen und unprofessionell aussehen'
+    ],
   },
   {
     name: 'Weinglas',
     illustration: 'wine',
-    use: 'Große Schale für Spritz-Drinks, damit Schaumwein, Soda, Garnitur und Eis genug Raum haben.',
+    use: 'Große Schale für Spritz-Drinks und Schaumweine. Kühle die Schale vorab, um Kohlensäure zu erhalten und den Drink länger sprudelnd zu halten.',
+    consistencyChecks: [
+      'Schale muss vorgekühlt sein (im Gefrierfach oder Eiswasser)',
+      'Eiswürfel bis zur Schalenwölbung füllen',
+      'Schaumwein immer zuerst eingießen',
+      'Orangenscheibe muss die Schale berühren'
+    ],
+    pitfalls: [
+      'Warme Schale lässt Kohlensäure sofort entweichen',
+      'Zu wenig Eis lässt den Drink schnell warm und flau werden',
+      'Soda zuerst zugeben zerstört die Perlage des Schaumweins'
+    ],
   },
   {
     name: 'Coupe',
     illustration: 'coupe',
-    use: 'Elegantes Stielglas für geshakte Drinks ohne Eis, etwa Margarita oder Espresso Martini.',
+    use: 'Elegantes Stielglas für geshakte Drinks ohne Eis. Präzise Verdünnung ist kritisch - ohne Eis gibt es nichts, das schlampige Mengen kaschiert.',
+    consistencyChecks: [
+      'Glas muss eiskalt sein (im Gefrierfach vorgekühlt)',
+      'Kein Eis im Glas - der Drink kommt direkt aus dem Shaker',
+      'Perfekte Verdünnung durch korrekte Shake-Zeit',
+      'Glasrand muss makellos sauber sein'
+    ],
+    pitfalls: [
+      'Zimmerwarmes Glas lässt den Drink sofort wärmer werden',
+      'Zu kurzes Shaken führt zu überkonzentriertem Drink',
+      'Zu langes Shaken lässt den Drink wässrig werden',
+      'Fingerabdrücke auf dem Stiel wirken unprofessionell'
+    ],
   },
   {
     name: 'Martiniglas',
     illustration: 'martini',
-    use: 'Markantes Stielglas für geradlinige Klassiker wie den Cosmopolitan ohne Eis im Glas.',
+    use: 'Markantes Stielglas für klare, geradlinige Klassiker ohne Eis. Die schmale Öffnung verhindert schnelle Erwärmung und Aromaverlust.',
+    consistencyChecks: [
+      'Glas muss tiefgefroren sein für perfekte Kälte',
+      'Drink direkt aus dem Shaker ohne Eis abseihen',
+      'Garnitur muss die schmale Öffnung nicht blockieren',
+      'Glas muss absolut sauber und trocken sein'
+    ],
+    pitfalls: [
+      'Raumtemperatur lässt den Drink in Sekunden wärmer werden',
+      'Eis im Glas führt zu schneller Verwässerung',
+      'Schmutzige Gläser ruinieren die klare Optik',
+      'Falsche Garnitur kann die Öffnung verstopfen'
+    ],
   },
   {
     name: 'Mule-Becher',
     illustration: 'mule',
-    use: 'Isolierter Becher für Ginger-Beer-Drinks; ein Highball-Glas ist in vielen Bars eine gute Alternative.',
+    use: 'Isolierter Kupferbecher für Ginger-Beer-Drinks. Hält den Drink länger kalt und verhindert, dass die Hand den Inhalt erwärmt.',
+    consistencyChecks: [
+      'Becher muss vorgekühlt sein (im Gefrierfach)',
+      'Eis bis zum Rand für maximale Kühlleistung',
+      'Ginger Beer immer zuletzt für lebendige Kohlensäure',
+      'Limettenecke muss gut sichtbar sein'
+    ],
+    pitfalls: [
+      'Wärme Becher lässt den Drink schnell lauwarm werden',
+      'Zu wenig Eis führt zu schneller Erwärmung',
+      'Ginger Beer zuerst zugeben lässt Kohlensäure entweichen',
+      'Falsche Garnitur verdeckt die professionelle Präsentation'
+    ],
   },
   {
     name: 'Hurricane-Glas',
     illustration: 'hurricane',
-    use: 'Geschwungenes Tropenglas für geblendete oder saftreiche Drinks wie Piña Colada.',
+    use: 'Geschwungenes Tropenglas für geblendete Drinks. Die weite Öffnung ermöglicht cremige Texturen und großzügige Garnitur.',
+    consistencyChecks: [
+      'Glasrand muss sauber und trocken sein',
+      'Geblendete Drinks müssen perfekt cremig sein',
+      'Garnitur muss üppig und frisch aussehen',
+      'Glas sollte zu ¾ gefüllt sein für optimale Präsentation'
+    ],
+    pitfalls: [
+      'Schmutziger Rand wirkt sofort unprofessionell',
+      'Zu flüssige Konsistenz zeigt Blender-Probleme',
+      'Welke Garnitur lässt den Drink alt aussehen',
+      'Überfüllen führt zu unkontrolliertem Überlaufen'
+    ],
   },
 ];
 
