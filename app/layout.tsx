@@ -3,6 +3,7 @@ import { PwaRegistrar } from "@/components/PwaRegistrar";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next"
 import { GoogleAnalytics } from "@next/third-parties/google";
+import { GoogleTagManager } from '@next/third-parties/google'
 
 export const metadata: Metadata = {
   applicationName: "BarStart DE",
@@ -39,6 +40,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="de" className="h-full">
+      <GoogleTagManager gtmId="GTM-5X5X7HR8" />
       <body>
         <PwaRegistrar />
         {children}
