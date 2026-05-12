@@ -42,6 +42,23 @@ export type GlasswareGuideItem = {
   pitfalls: string[];
 };
 
+export type BarToolIllustration =
+  | 'jigger'
+  | 'shaker'
+  | 'bar-spoon'
+  | 'hawthorne-strainer'
+  | 'mixing-glass'
+  | 'muddler'
+  | 'fine-strainer';
+
+export type BarToolGuideItem = {
+  name: string;
+  illustration: BarToolIllustration;
+  use: string;
+  bestFor: string[];
+  pitfalls: string[];
+};
+
 export type BarBasicsModule = {
   title: string;
   summary: string;
@@ -140,6 +157,114 @@ export const barBasicsModules: ReadonlyArray<BarBasicsModule> = [
       'Spirituosen vor dem Build bereitstellen und Reihenfolge im Kopf haben',
       'Soda und Schaumwein immer zuletzt zugeben',
       'Vor dem Abschicken kurz Blick auf Glas, Garnitur und Eisniveau werfen',
+    ],
+  },
+];
+
+export const barToolsGuide: ReadonlyArray<BarToolGuideItem> = [
+  {
+    name: 'Jigger',
+    illustration: 'jigger',
+    use: 'Doppelkonisches Messgefäß für exakte cl-Mengen. Ein sauberer 2/4-cl- oder 2,5/5-cl-Jigger ist die Grundlage für konstante Drinks - du baust schneller und kalkulierst sicherer.',
+    bestFor: [
+      'Spirituosen, Likör und Sirup vor jedem Pour abmessen',
+      'Konsistenz über mehrere Drinks und Schichten halten',
+      'Trainingsphase: jede Zutat einzeln messen, statt frei zu schätzen',
+    ],
+    pitfalls: [
+      'Bis zum Rand füllen, nicht bis zur Markierung darunter',
+      'Nach Sirup oder Eiweiß zwischendurch abspülen, sonst klebt der nächste Pour',
+      'Zwei Größen mischen lässt Rezepte unbemerkt aus dem Gleichgewicht kippen',
+    ],
+  },
+  {
+    name: 'Boston Shaker',
+    illustration: 'shaker',
+    use: 'Zweiteiliger Shaker aus Tin und kleinerem Tin oder Glas. Großes Volumen kühlt schnell und kräftig - ideal für jede Sour-, Egg-White- und Citrus-Forward-Rezeptur.',
+    bestFor: [
+      'Drinks mit Zitrus, Sirup, Sahne oder Eiweiß',
+      'Kräftiges Shaken für Verdünnung und Textur',
+      'Dry Shake (ohne Eis) für stabile Schaumkrone',
+    ],
+    pitfalls: [
+      'Lose verschlossene Tins springen beim Shaken auseinander',
+      'Zu wenig Eis schlägt nicht kalt genug und verwässert nicht genug',
+      'Spirit-Drinks (Negroni, Manhattan, Old Fashioned) gehören nicht in den Shaker',
+    ],
+  },
+  {
+    name: 'Barlöffel',
+    illustration: 'bar-spoon',
+    use: 'Langer, gedrehter Löffel mit kleiner Schale und meist abgeflachtem Ende. Werkzeug für gerührte Drinks, Layering und das saubere Anheben von Highballs.',
+    bestFor: [
+      'Spirit-Forward-Drinks im Rührglas kalt rühren',
+      'Soda und Schaumwein nach dem Build einmal sanft anheben',
+      'Liköre über die Rückseite des Löffels schichten (Float)',
+    ],
+    pitfalls: [
+      'Zu schnelles Rühren bricht das Eis und verwässert den Drink',
+      'Klappern am Glas wirkt unprofessionell und stört Gäste an der Bar',
+      'Nicht zwischen süßen und bitteren Drinks abwischen verschleppt Aromen',
+    ],
+  },
+  {
+    name: 'Hawthorne Strainer',
+    illustration: 'hawthorne-strainer',
+    use: 'Flacher Strainer mit Federspirale, der oben auf den Shaker-Tin oder das Rührglas passt. Hält Eis und gröbere Stücke zurück, lässt den Drink aber sauber durch.',
+    bestFor: [
+      'Geshakte und gerührte Drinks vom Eis abseihen',
+      'Spirale enger ziehen, wenn Minze oder Beeren im Shaker waren',
+      'Im Verbund mit dem Feinsieb für Coupe- und Martini-Service',
+    ],
+    pitfalls: [
+      'Lose aufgesetzt rutscht der Strainer beim Pour ab',
+      'Verbogene Spirale hält keine kleinen Stücke mehr zurück',
+      'Zu langsam abgegossen lässt den Drink im Tin nachverwässern',
+    ],
+  },
+  {
+    name: 'Rührglas',
+    illustration: 'mixing-glass',
+    use: 'Schweres, gerades Glas mit dickem Boden für gerührte Drinks. Die Wärmeträgheit hält Spirit-Forward-Klassiker länger kalt und schont das Eis beim Rühren.',
+    bestFor: [
+      'Negroni, Manhattan, Martini und Old Fashioned vorrühren',
+      'Eis bewusst auf Verdünnung kontrollieren statt zerschlagen',
+      'Vorgekühlt servieren: einmal mit Eiswasser ausschwenken vor dem Build',
+    ],
+    pitfalls: [
+      'Warmes Glas zwingt zu längerem Rühren und kippt die Verdünnung',
+      'Zu kleines Eis bricht beim Rühren und macht den Drink wässrig',
+      'Drinks mit Saft oder Eiweiß gehören nicht ins Rührglas - die brauchen Shake',
+    ],
+  },
+  {
+    name: 'Muddler',
+    illustration: 'muddler',
+    use: 'Schwerer Stößel aus Holz oder Kunststoff zum Andrücken von Kräutern und Früchten. Setzt Aroma frei, ohne den bitteren weißen Teil von Schale oder Stiel zu zerquetschen.',
+    bestFor: [
+      'Minze, Basilikum oder Thymian für Mojito und Smashes anklopfen',
+      'Limettenspalten in der Caipirinha leicht andrücken',
+      'Beeren und Pfirsich für Sommer-Sours behutsam aufbrechen',
+    ],
+    pitfalls: [
+      'Zu starkes Drehen zerreißt Minze und macht den Drink bitter',
+      'Limette mit weißem Teil zerquetschen lässt den Drink scharf werden',
+      'Schmutziger Muddler zwischen Drinks verschleppt Geschmack und Farbe',
+    ],
+  },
+  {
+    name: 'Feinsieb',
+    illustration: 'fine-strainer',
+    use: 'Kleines Sieb mit feinem Maschendraht, das beim Doppelt-Abseihen unter den Hawthorne gehalten wird. Hält Eissplitter, Fruchtfleisch und Kräuterstücke aus dem Servierglas.',
+    bestFor: [
+      'Geshakte Drinks mit Zitrus oder Eiweiß doppelt abseihen',
+      'Servieren in Coupe oder Martiniglas ohne Eis',
+      'Drinks mit Minze, Beeren oder Fruchtmark aus dem Shaker',
+    ],
+    pitfalls: [
+      'Verkrustete Maschen lassen Aromen vom Vortag mitgehen',
+      'Zu hoch gehalten spritzt der Pour über den Glasrand',
+      'Bei dickflüssigen Texturen (Cream, Kokos) verstopft das Sieb schnell',
     ],
   },
 ];

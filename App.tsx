@@ -22,14 +22,17 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import { BarToolVisual } from './src/components/BarToolVisual';
 import { DrinkVisual } from './src/components/DrinkVisual';
 import { GlasswareVisual } from './src/components/GlasswareVisual';
 import {
   barBasicsModules,
+  barToolsGuide,
   drinks,
   glasswareGuide,
   lessons,
   techniqueTracks,
+  type BarToolIllustration,
   type Drink,
   type DrinkArtworkSpec,
   type GlasswareIllustration,
@@ -99,6 +102,7 @@ type QuizStatus =
 type ImagePreview =
   | { kind: 'drink'; drink: Drink; title: string }
   | { kind: 'glass'; illustration: GlasswareIllustration; title: string }
+  | { kind: 'tool'; illustration: BarToolIllustration; title: string }
   | { kind: 'remote'; uri: string; title: string };
 type ImagePreviewFrame = {
   x: number;
@@ -924,6 +928,21 @@ export default function App() {
     );
   }
 
+  function openToolPreview(
+    illustration: BarToolIllustration,
+    title: string,
+    originFrame: ImagePreviewFrame
+  ) {
+    showImagePreview(
+      {
+        kind: 'tool',
+        illustration,
+        title,
+      },
+      originFrame
+    );
+  }
+
   function openRemoteImagePreview(uri: string, title: string, originFrame: ImagePreviewFrame) {
     showImagePreview(
       {
@@ -1027,6 +1046,13 @@ export default function App() {
                   height={previewVisualSize}
                 />
               ) : null}
+              {imagePreview.kind === 'tool' ? (
+                <BarToolVisual
+                  kind={imagePreview.illustration}
+                  width={previewVisualSize}
+                  height={previewVisualSize}
+                />
+              ) : null}
               {imagePreview.kind === 'drink' ? (
                 <DrinkVisual drink={imagePreview.drink} size={previewVisualSize} resizeMode="contain" />
               ) : null}
@@ -1061,6 +1087,13 @@ export default function App() {
             >
               {imagePreview.kind === 'glass' ? (
                 <GlasswareVisual
+                  kind={imagePreview.illustration}
+                  width={previewVisualSize}
+                  height={previewVisualSize}
+                />
+              ) : null}
+              {imagePreview.kind === 'tool' ? (
+                <BarToolVisual
                   kind={imagePreview.illustration}
                   width={previewVisualSize}
                   height={previewVisualSize}
@@ -1979,6 +2012,51 @@ export default function App() {
                           <Text style={styles.basicsChecklistBullet}>•</Text>
                           <Text style={styles.basicsChecklistText}>{item}</Text>
                         </View>
+                      ))}
+                    </View>
+                  </View>
+                ))}
+              </View>
+
+              <View style={styles.barToolsHeader}>
+                <Text style={styles.barToolsHeaderEyebrow}>Bar-Werkzeuge</Text>
+                <Text style={styles.barToolsHeaderTitle}>Werkzeug-Spickzettel</Text>
+                <Text style={styles.barToolsHeaderBody}>
+                  Jedes Werkzeug hat einen klaren Zweck. Wer Jigger, Shaker, Barlöffel und Strainer
+                  beherrscht, baut konstanter und schneller. Tippe auf ein Bild, um es groß zu sehen.
+                </Text>
+              </View>
+
+              <View style={styles.barToolsGrid}>
+                {barToolsGuide.map((tool) => (
+                  <View key={tool.name} style={styles.barToolCard}>
+                    <ImagePreviewTrigger
+                      onOpen={(originFrame) =>
+                        openToolPreview(tool.illustration, tool.name, originFrame)
+                      }
+                      style={[styles.imagePreviewButton, styles.barToolVisualWrap]}
+                      pressedStyle={styles.imagePreviewButtonPressed}
+                    >
+                      <BarToolVisual kind={tool.illustration} loading="lazy" />
+                    </ImagePreviewTrigger>
+                    <Text style={styles.barToolName}>{tool.name}</Text>
+                    <Text style={styles.barToolBody}>{tool.use}</Text>
+
+                    <View style={styles.barToolSection}>
+                      <Text style={styles.barToolSectionTitle}>✓ Wann du es greifst:</Text>
+                      {tool.bestFor.map((item, index) => (
+                        <Text key={`${tool.name}-best-${index}`} style={styles.barToolListItem}>
+                          • {item}
+                        </Text>
+                      ))}
+                    </View>
+
+                    <View style={styles.barToolSection}>
+                      <Text style={styles.barToolSectionTitle}>⚠ Häufige Fehler:</Text>
+                      {tool.pitfalls.map((item, index) => (
+                        <Text key={`${tool.name}-pitfall-${index}`} style={styles.barToolListItem}>
+                          • {item}
+                        </Text>
                       ))}
                     </View>
                   </View>
@@ -3786,6 +3864,81 @@ const styles = StyleSheet.create({
     color: '#C8BADA',
     fontSize: 14,
     lineHeight: 21,
+  },
+  barToolsHeader: {
+    marginTop: 28,
+  },
+  barToolsHeaderEyebrow: {
+    color: '#FFB300',
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+  },
+  barToolsHeaderTitle: {
+    marginTop: 8,
+    color: '#F5F0FF',
+    fontSize: 23,
+    lineHeight: 28,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+    fontFamily: Platform.select({ ios: 'Georgia', default: undefined }),
+  },
+  barToolsHeaderBody: {
+    marginTop: 8,
+    color: '#A898BC',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  barToolsGrid: {
+    marginTop: 16,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  barToolCard: {
+    width: 240,
+    flexGrow: 1,
+    flexBasis: 240,
+    borderRadius: 22,
+    padding: 18,
+    backgroundColor: '#100D1F',
+    borderWidth: 1,
+    borderColor: '#2D1A4A',
+  },
+  barToolVisualWrap: {
+    marginBottom: 14,
+    alignItems: 'center',
+    backgroundColor: '#0B091A',
+    borderRadius: 18,
+    paddingVertical: 10,
+  },
+  barToolName: {
+    color: '#FFB800',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  barToolBody: {
+    color: '#B8A9CC',
+    fontSize: 14,
+    lineHeight: 22,
+    marginBottom: 12,
+  },
+  barToolSection: {
+    marginBottom: 12,
+  },
+  barToolSectionTitle: {
+    color: '#FFB800',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  barToolListItem: {
+    color: '#C5B8DA',
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 2,
   },
   techniqueTrackHeader: {
     marginTop: 28,
