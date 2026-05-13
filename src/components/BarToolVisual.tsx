@@ -11,12 +11,12 @@ type BarToolVisualProps = {
 };
 
 const BAR_TOOL_IMAGE_URIS: Record<BarToolIllustration, string> = {
-  jigger: '/bar-tools/jigger.png',
-  shaker: '/bar-tools/shaker.png',
+  'jigger': '/bar-tools/jigger.png',
+  'shaker': '/bar-tools/shaker.png',
   'bar-spoon': '/bar-tools/barspoon.png',
   'hawthorne-strainer': '/bar-tools/strainer.png',
   'mixing-glass': '/bar-tools/mixing-glass.png',
-  muddler: '/bar-tools/muddler.png',
+  'muddler': '/bar-tools/muddler.png',
   'fine-strainer': '/bar-tools/feinsieb.png',
 };
 
@@ -35,7 +35,6 @@ export function BarToolVisual({
         height={height}
         loading={loading}
         sizes={`${width}px`}
-        unoptimized
         style={{
           width,
           height,
