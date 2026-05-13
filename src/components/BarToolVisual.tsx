@@ -11,13 +11,13 @@ type BarToolVisualProps = {
 };
 
 const BAR_TOOL_IMAGE_URIS: Record<BarToolIllustration, string> = {
-  jigger: '/bar-tools/jigger.svg',
-  shaker: '/bar-tools/shaker.svg',
-  'bar-spoon': '/bar-tools/bar-spoon.svg',
-  'hawthorne-strainer': '/bar-tools/hawthorne-strainer.svg',
-  'mixing-glass': '/bar-tools/mixing-glass.svg',
-  muddler: '/bar-tools/muddler.svg',
-  'fine-strainer': '/bar-tools/fine-strainer.svg',
+  jigger: '/bar-tools/jigger.png',
+  shaker: '/bar-tools/shaker.png',
+  'bar-spoon': '/bar-tools/barspoon.png',
+  'hawthorne-strainer': '/bar-tools/strainer.png',
+  'mixing-glass': '/bar-tools/mixing-glass.png',
+  muddler: '/bar-tools/muddler.png',
+  'fine-strainer': '/bar-tools/feinsieb.png',
 };
 
 export function BarToolVisual({
