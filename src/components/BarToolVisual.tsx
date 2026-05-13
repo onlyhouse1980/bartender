@@ -28,21 +28,28 @@ export function BarToolVisual({
 }: BarToolVisualProps) {
   if (Platform.OS === 'web') {
     return (
-      <NextImage
-        src={BAR_TOOL_IMAGE_URIS[kind]}
-        alt=""
-        width={width}
-        height={height}
-        loading={loading}
-        sizes={`${width}px`}
+      <span
         style={{
           width,
           height,
           borderRadius: 18,
-          objectFit: 'contain',
           display: 'block',
+          overflow: 'hidden',
+          position: 'relative',
         }}
-      />
+      >
+        <NextImage
+          src={BAR_TOOL_IMAGE_URIS[kind]}
+          alt=""
+          fill
+          loading={loading}
+          sizes={`${width}px`}
+          style={{
+            borderRadius: 18,
+            objectFit: 'contain',
+          }}
+        />
+      </span>
     );
   }
 
