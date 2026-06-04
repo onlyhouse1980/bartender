@@ -26,17 +26,36 @@ import { BarToolVisual } from './src/components/BarToolVisual';
 import { DrinkVisual } from './src/components/DrinkVisual';
 import { GlasswareVisual } from './src/components/GlasswareVisual';
 import {
-  barBasicsModules,
-  barToolsGuide,
-  drinks,
-  glasswareGuide,
-  lessons,
-  techniqueTracks,
+  barBasicsModules as rawBarBasicsModules,
+  barToolsGuide as rawBarToolsGuide,
+  drinks as rawDrinks,
+  glasswareGuide as rawGlasswareGuide,
+  lessons as rawLessons,
+  techniqueTracks as rawTechniqueTracks,
   type BarToolIllustration,
   type Drink,
   type DrinkArtworkSpec,
   type GlasswareIllustration,
 } from './src/data/bartending';
+import {
+  uiTranslations,
+  getLocalizedDrinks,
+  getLocalizedLessons,
+  getLocalizedBasics,
+  getLocalizedTools,
+  getLocalizedGlassware,
+  getLocalizedTechniqueTracks,
+  getLocalizedImportedDrinks,
+  translateCategory,
+  translateGlassware,
+  translateGarnish,
+  translateIngredient,
+  translateAmount,
+  LANGUAGES,
+  type SupportedLanguage,
+  techniqueTranslations,
+  difficultyTranslations,
+} from './src/data/translations';
 import { cacheRemoteImageAsDataUrl } from './src/lib/imageCache';
 import { normalizeDrinkKey, searchWebDrinks, type WebDrinkSearchResult, webResultToDrink } from './src/lib/drinkImport';
 import { loadImportedDrinks, saveImportedDrinks } from './src/lib/importedDrinkStorage';
@@ -246,8 +265,59 @@ export default function App() {
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
 
   const [activeView, setActiveView] = useState<AppView>('library');
+  const [language, setLanguage] = useState<SupportedLanguage>('de');
+
+  // Load language from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('barstart-preferred-language');
+      if (stored && ['de', 'en', 'fr', 'es', 'nl'].includes(stored)) {
+        setLanguage(stored as SupportedLanguage);
+        setSelectedCategory(uiTranslations[stored as SupportedLanguage]?.categoryAll || 'Alle');
+      }
+    }
+  }, []);
+
+  // Save language to localStorage on change and update document title
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('barstart-preferred-language', language);
+      document.title = `BarStart [${language.toUpperCase()}]`;
+    }
+  }, [language]);
+
+  const drinks = useMemo(() => getLocalizedDrinks(rawDrinks, language), [language]);
+  const lessons = useMemo(() => getLocalizedLessons(rawLessons, language), [language]);
+  const barBasicsModules = useMemo(() => getLocalizedBasics(rawBarBasicsModules, language), [language]);
+  const barToolsGuide = useMemo(() => getLocalizedTools(rawBarToolsGuide, language), [language]);
+  const glasswareGuide = useMemo(() => getLocalizedGlassware(rawGlasswareGuide, language), [language]);
+  const techniqueTracks = useMemo(() => getLocalizedTechniqueTracks(rawTechniqueTracks, language), [language]);
+
+  const t = (key: string) => {
+    return uiTranslations[language]?.[key] || uiTranslations['en']?.[key] || key;
+  };
+
+  const handleLanguageChange = (lang: SupportedLanguage) => {
+    setLanguage(lang);
+    setSelectedCategory(uiTranslations[lang]?.categoryAll || 'Alle');
+    
+    // Reset quiz selections
+    setSelectedGlass(null);
+    setSelectedIngredients([]);
+    setSelectedGarnish(null);
+    setSelectedBuildSteps([]);
+    setIngredientSearchQuery('');
+    setQuizStatus({ kind: 'idle' });
+  };
+
   const [selectedCategory, setSelectedCategory] = useState('Alle');
-  const [expandedDrinkId, setExpandedDrinkId] = useState<string | null>(drinks[0]?.id ?? null);
+  const [expandedDrinkId, setExpandedDrinkId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (expandedDrinkId === null && drinks.length > 0) {
+      setExpandedDrinkId(drinks[0].id);
+    }
+  }, [drinks]);
   const [librarySearchQuery, setLibrarySearchQuery] = useState('');
   const [activeLegalPage, setActiveLegalPage] = useState<LegalPage | null>(null);
   const [importedDrinks, setImportedDrinks] = useState<Drink[]>([]);
@@ -295,11 +365,12 @@ export default function App() {
     };
   }, []);
 
-  const allDrinks = useMemo(() => [...importedDrinks, ...drinks], [importedDrinks]);
-  const categories = ['Alle', ...new Set(allDrinks.map((drink) => drink.category))];
+  const localizedImportedDrinks = useMemo(() => getLocalizedImportedDrinks(importedDrinks, language), [importedDrinks, language]);
+  const allDrinks = useMemo(() => [...localizedImportedDrinks, ...drinks], [localizedImportedDrinks, drinks]);
+  const categories = useMemo(() => [t('categoryAll'), ...new Set(allDrinks.map((drink) => drink.category))], [allDrinks, language]);
   const normalizedLibraryQuery = normalizeQuizLabel(librarySearchQuery);
   const visibleDrinks = allDrinks.filter((drink) => {
-    const categoryMatches = selectedCategory === 'Alle' || drink.category === selectedCategory;
+    const categoryMatches = selectedCategory === t('categoryAll') || drink.category === selectedCategory;
     const searchMatches = !normalizedLibraryQuery || matchesLibraryQuery(drink, normalizedLibraryQuery);
     return categoryMatches && searchMatches;
   });
@@ -323,8 +394,8 @@ export default function App() {
     quizPool === 'mistakes' ? unresolvedMistakeDrinks.map((entry) => entry.drink) : allDrinks;
   quizPoolDrinksRef.current = quizPoolDrinks;
 
-  const ingredientBank = buildIngredientBank(allDrinks, quizMode);
-  const garnishBank = buildGarnishBank(allDrinks);
+  const ingredientBank = buildIngredientBank(allDrinks, quizMode, language);
+  const garnishBank = buildGarnishBank(allDrinks, language);
   const normalizedIngredientQuery = normalizeQuizLabel(ingredientSearchQuery);
   const filteredIngredientBank = ingredientBank.filter((ingredient) => {
     if (!normalizedIngredientQuery) {
@@ -420,12 +491,12 @@ export default function App() {
   });
   const serveButtonLabel =
     quizStatus.kind === 'correct'
-      ? 'Richtig serviert'
+      ? t('correctServed')
       : quizStatus.kind === 'wrong'
-        ? 'Nochmal servieren'
+        ? t('serveAgain')
         : quizStatus.kind === 'cheat-reveal'
-          ? 'Lösung läuft...'
-          : 'Serve It!';
+          ? t('solutionRunning')
+          : t('serveIt');
 
   useEffect(() => {
     if (!quizPoolDrinks.length) {
@@ -672,8 +743,8 @@ export default function App() {
     setImportedDrinks(nextImportedDrinks);
     saveImportedDrinks(nextImportedDrinks);
     setExpandedDrinkId((current) => (current === drink.id ? null : current));
-    setSelectedCategory('Alle');
-    setCustomDrinkMessage(`"${drink.name}" wurde aus der lokalen Bibliothek entfernt.`);
+    setSelectedCategory(t('categoryAll'));
+    setCustomDrinkMessage(`"${drink.name}" ${t('messageRemovedLocal')}`);
   }
 
   async function handleSearch() {
@@ -740,11 +811,11 @@ export default function App() {
       saveImportedDrinks(nextImportedDrinks);
       setActiveView('library');
       setLibrarySearchQuery('');
-      setSelectedCategory('Alle');
+      setSelectedCategory(t('categoryAll'));
       setExpandedDrinkId(importedDrink.id);
       setSearchError(null);
       setSearchMessage(
-        `"${importedDrink.name}" wurde importiert, lokal gespeichert und ist offline weiter nutzbar.`
+        `"${importedDrink.name}" ${t('messageImportedSaved')}`
       );
     } finally {
       setImportingDrinkId(null);
@@ -778,8 +849,8 @@ export default function App() {
         kind: 'correct',
         message:
           quizMode === 'service'
-            ? `Sauberer Service-Run. ${formatEuro(CORRECT_TIP_REWARD)} wandern ins Trinkgeldglas.`
-            : `Perfekt serviert. ${formatEuro(CORRECT_TIP_REWARD)} wandern ins Trinkgeldglas.`,
+            ? t('quizCorrectService').replace('{reward}', formatEuro(CORRECT_TIP_REWARD))
+            : t('quizCorrectBeginner').replace('{reward}', formatEuro(CORRECT_TIP_REWARD)),
       });
 
       cheatTimerRef.current = setTimeout(() => {
@@ -791,26 +862,26 @@ export default function App() {
 
     const details: string[] = [];
     if (!isGlassCorrect) {
-      details.push('Das Glas stimmt noch nicht.');
+      details.push(t('quizGlassIncorrect'));
     }
     if (!isIngredientCorrect) {
       details.push(
         serviceMode
-          ? 'Rezept oder Mengen stimmen noch nicht exakt.'
-          : 'Die Zutatenauswahl stimmt noch nicht.'
+          ? t('quizRecipeIncorrect')
+          : t('quizIngredientsIncorrect')
       );
     }
     if (serviceMode && !isGarnishCorrect) {
-      details.push('Die Garnitur passt noch nicht.');
+      details.push(t('quizGarnishIncorrect'));
     }
     if (serviceMode && !isBuildOrderCorrect) {
-      details.push('Die Reihenfolge der Arbeitsschritte ist noch nicht korrekt.');
+      details.push(t('quizMethodIncorrect'));
     }
 
     persistTipJar(Math.max(0, tipJar - WRONG_TIP_PENALTY));
     setQuizStatus({
       kind: 'wrong',
-      message: `Nicht korrekt. ${formatEuro(WRONG_TIP_PENALTY)} werden aus dem Trinkgeldglas abgezogen. Passe deine Auswahl an und versuche es erneut.`,
+      message: t('quizWrongFeedback').replace('{penalty}', formatEuro(WRONG_TIP_PENALTY)),
       details,
     });
   }
@@ -823,7 +894,7 @@ export default function App() {
     clearCheatTimer();
     setQuizStatus({
       kind: 'cheat-reveal',
-      message: 'Cheat aktiv. Lösung ansehen, dann startet automatisch der nächste Drink.',
+      message: t('quizCheatFeedback'),
     });
 
     cheatTimerRef.current = setTimeout(() => {
@@ -1126,9 +1197,28 @@ export default function App() {
           showsVerticalScrollIndicator={false}
         >
         <View style={styles.hero}>
-          <Text style={styles.heroTitle}>BarStart DE</Text>
+          <View style={styles.langSelectorRow}>
+            {LANGUAGES.map((lang) => {
+              const active = language === lang.code;
+              return (
+                <Pressable
+                  key={lang.code}
+                  onPress={() => handleLanguageChange(lang.code)}
+                  style={[
+                    styles.langChip,
+                    active && styles.langChipActive,
+                  ]}
+                >
+                  <Text style={[styles.langChipText, active && styles.langChipTextActive]}>
+                    {lang.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Text style={styles.heroTitle}>BarStart {language.toUpperCase()}</Text>
           <Text style={styles.heroSubtitle}>
-            Drinks trainieren, Service festigen und Rezepte auch im Bar-Alltag schnell finden.
+            {t('heroSubtitle')}
           </Text>
         </View>
 
@@ -1150,7 +1240,7 @@ export default function App() {
                 ]}
               >
                 <Text style={[styles.viewSwitchText, active && styles.viewSwitchTextActive]}>
-                  {view.label}
+                  {t(view.key)}
                 </Text>
               </Pressable>
             );
@@ -1177,23 +1267,23 @@ export default function App() {
                   pressed && styles.legalBackButtonPressed,
                 ]}
               >
-                <Text style={styles.legalBackButtonText}>Zurück</Text>
+                <Text style={styles.legalBackButtonText}>{t('backButton')}</Text>
               </Pressable>
-              <Text style={styles.legalPageKicker}>Rechtliches</Text>
+              <Text style={styles.legalPageKicker}>{t('legalTitle')}</Text>
             </View>
 
             {activeLegalPage === 'impressum' ? (
               <View style={styles.legalCard}>
-                <Text style={styles.legalTitle}>Impressum</Text>
-                <Text style={styles.legalIntro}>Angaben gemaess § 5 DDG</Text>
+                <Text style={styles.legalTitle}>{t('impressumTitle')}</Text>
+                <Text style={styles.legalIntro}>{t('impressumDDG')}</Text>
 
                 <View style={styles.legalBlock}>
-                  <Text style={styles.legalLabel}>Diensteanbieter</Text>
+                  <Text style={styles.legalLabel}>{t('legalProvider')}</Text>
                   <Text style={styles.legalValue}>Ryan Nyberg</Text>
                 </View>
 
                 <View style={styles.legalBlock}>
-                  <Text style={styles.legalLabel}>E-Mail</Text>
+                  <Text style={styles.legalLabel}>{t('legalEmail')}</Text>
                   <Pressable
                     onPress={handleEmailPress}
                     style={({ pressed }) => [styles.legalLinkWrap, pressed && styles.legalLinkPressed]}
@@ -1203,7 +1293,7 @@ export default function App() {
                 </View>
 
                 <View style={styles.legalBlock}>
-                  <Text style={styles.legalLabel}>Anschrift</Text>
+                  <Text style={styles.legalLabel}>{t('legalAddress')}</Text>
                   <Text style={styles.legalValue}>
                     Leipziger Str. 222{'\n'}
                     01139 Dresden, Germany
@@ -1211,7 +1301,7 @@ export default function App() {
                 </View>
 
                 <View style={styles.legalBlock}>
-                  <Text style={styles.legalLabel}>Verantwortlich fuer den Inhalt</Text>
+                  <Text style={styles.legalLabel}>{t('legalResponsible')}</Text>
                   <Text style={styles.legalValue}>Ryan Nyberg</Text>
                   <Text style={styles.legalSubtle}>
                     Leipziger Str. 222{'\n'}
@@ -1220,44 +1310,39 @@ export default function App() {
                 </View>
 
                 <Text style={styles.legalNotice}>
-                  Weitere Pflichtangaben wie Registereintrag, Umsatzsteuer-ID oder berufsrechtliche
-                  Angaben sind nur erforderlich, wenn sie auf dein Angebot zutreffen.
+                  {t('legalNotice')}
                 </Text>
               </View>
             ) : (
               <View style={styles.legalCard}>
-                <Text style={styles.legalTitle}>Datenschutz</Text>
-                <Text style={styles.legalIntro}>Kurzfassung fuer diese App</Text>
+                <Text style={styles.legalTitle}>{t('privacyTitle')}</Text>
+                <Text style={styles.legalIntro}>{t('privacyIntro')}</Text>
 
                 <View style={styles.legalBlock}>
-                  <Text style={styles.legalLabel}>Lokale Speicherung</Text>
+                  <Text style={styles.legalLabel}>{t('privacyLocalTitle')}</Text>
                   <Text style={styles.legalValue}>
-                    Importierte Drinks, lokal zwischengespeicherte Bilder, dein Quizfortschritt und
-                    das Trinkgeldglas werden nur auf diesem Geraet im Browser gespeichert.
+                    {t('privacyLocalBody')}
                   </Text>
                 </View>
 
                 <View style={styles.legalBlock}>
-                  <Text style={styles.legalLabel}>Websuche</Text>
+                  <Text style={styles.legalLabel}>{t('privacyWebSearchTitle')}</Text>
                   <Text style={styles.legalValue}>
-                    Wenn du nach einem Drink suchst, wird dein Suchbegriff an TheCocktailDB gesendet.
-                    Dabei koennen Rezeptdaten und Vorschaubilder von dort geladen werden.
+                    {t('privacyWebSearchBody')}
                   </Text>
                 </View>
 
                 <View style={styles.legalBlock}>
-                  <Text style={styles.legalLabel}>Offline-Nutzung</Text>
+                  <Text style={styles.legalLabel}>{t('privacyOfflineTitle')}</Text>
                   <Text style={styles.legalValue}>
-                    Bereits exportierte App-Dateien, importierte Rezepte und viele bereits geladene
-                    Bilder werden fuer eine spaetere Offline-Nutzung im Browsercache gespeichert.
+                    {t('privacyOfflineBody')}
                   </Text>
                 </View>
 
                 <View style={styles.legalBlock}>
-                  <Text style={styles.legalLabel}>Kontakt</Text>
+                  <Text style={styles.legalLabel}>{t('privacyContactTitle')}</Text>
                   <Text style={styles.legalValue}>
-                    Wenn du per E-Mail Kontakt aufnimmst, sendest du deine Angaben freiwillig an die
-                    im Impressum genannte Adresse.
+                    {t('privacyContactBody')}
                   </Text>
                 </View>
               </View>
@@ -1273,10 +1358,9 @@ export default function App() {
                 ]}
               >
                 <View style={styles.libraryTopMain}>
-                  <Text style={styles.sectionTitle}>Glaswaren-Spickzettel</Text>
+                  <Text style={styles.sectionTitle}>{t('glasswareCheatSheet')}</Text>
                   <Text style={styles.sectionIntro}>
-                    Wenn sich das Glas ändert, ändert sich auch der Drink. Tippe auf ein Bild, um
-                    es groß zu sehen.
+                    {t('glasswareCheatSheetBody')}
                   </Text>
 
                   {libraryWideGrid ? (
@@ -1298,13 +1382,13 @@ export default function App() {
                           <Text style={styles.glassCardTitle}>{item.name}</Text>
                           <Text style={styles.glassCardBody}>{item.use}</Text>
                           <View style={styles.glassCardSection}>
-                            <Text style={styles.glassCardSectionTitle}>✓ Konsistenz-Checks:</Text>
+                            <Text style={styles.glassCardSectionTitle}>{t('consistencyChecksTitle')}</Text>
                             {item.consistencyChecks.map((check, index) => (
                               <Text key={index} style={styles.glassCardListItem}>• {check}</Text>
                             ))}
                           </View>
                           <View style={styles.glassCardSection}>
-                            <Text style={styles.glassCardSectionTitle}>⚠ Häufige Fehler:</Text>
+                            <Text style={styles.glassCardSectionTitle}>{t('commonPitfallsTitle')}</Text>
                             {item.pitfalls.map((pitfall, index) => (
                               <Text key={index} style={styles.glassCardListItem}>• {pitfall}</Text>
                             ))}
@@ -1332,13 +1416,13 @@ export default function App() {
                           <Text style={styles.glassCardTitle}>{item.name}</Text>
                           <Text style={styles.glassCardBody}>{item.use}</Text>
                           <View style={styles.glassCardSection}>
-                            <Text style={styles.glassCardSectionTitle}>✓ Konsistenz-Checks:</Text>
+                            <Text style={styles.glassCardSectionTitle}>{t('consistencyChecksTitle')}</Text>
                             {item.consistencyChecks.map((check, index) => (
                               <Text key={index} style={styles.glassCardListItem}>• {check}</Text>
                             ))}
                           </View>
                           <View style={styles.glassCardSection}>
-                            <Text style={styles.glassCardSectionTitle}>⚠ Häufige Fehler:</Text>
+                            <Text style={styles.glassCardSectionTitle}>{t('commonPitfallsTitle')}</Text>
                             {item.pitfalls.map((pitfall, index) => (
                               <Text key={index} style={styles.glassCardListItem}>• {pitfall}</Text>
                             ))}
@@ -1370,10 +1454,9 @@ export default function App() {
             <View style={styles.section}>
               <View style={styles.customDrinkHeader}>
                 <View style={styles.customDrinkHeaderText}>
-                  <Text style={styles.sectionTitle}>Eigene Drinks</Text>
+                  <Text style={styles.sectionTitle}>{t('customDrinksTitle')}</Text>
                   <Text style={styles.sectionIntro}>
-                    Lege Barstandards, Hausdrinks oder Trainingsrezepte direkt in deiner lokalen
-                    Bibliothek an.
+                    {t('customDrinksIntro')}
                   </Text>
                 </View>
                 <Pressable
@@ -1389,7 +1472,7 @@ export default function App() {
                   ]}
                 >
                   <Text style={styles.customDrinkToggleButtonText}>
-                    {showCustomDrinkForm ? 'Formular schliessen' : 'Drink hinzufuegen'}
+                    {showCustomDrinkForm ? t('closeForm') : t('addDrinkButton')}
                   </Text>
                 </Pressable>
               </View>
@@ -1398,11 +1481,11 @@ export default function App() {
                 <View style={styles.customDrinkForm}>
                   <View style={styles.customFormGrid}>
                     <View style={styles.customFormField}>
-                      <Text style={styles.customFormLabel}>Name</Text>
+                      <Text style={styles.customFormLabel}>{t('drinkNameLabel')}</Text>
                       <TextInput
                         value={customDrinkForm.name}
                         onChangeText={(value) => updateCustomDrinkForm('name', value)}
-                        placeholder="Zum Beispiel: Haus Mule"
+                        placeholder={t('exampleDrinkPlaceholder')}
                         placeholderTextColor="#8070A0"
                         style={styles.searchInput}
                         autoCapitalize="words"
@@ -1412,11 +1495,11 @@ export default function App() {
                     </View>
 
                     <View style={styles.customFormField}>
-                      <Text style={styles.customFormLabel}>Kategorie</Text>
+                      <Text style={styles.customFormLabel}>{t('categoryLabel')}</Text>
                       <TextInput
                         value={customDrinkForm.category}
                         onChangeText={(value) => updateCustomDrinkForm('category', value)}
-                        placeholder="Eigene Drinks"
+                        placeholder={t('customDrinksPlaceholder')}
                         placeholderTextColor="#8070A0"
                         style={styles.searchInput}
                         autoCapitalize="sentences"
@@ -1428,11 +1511,11 @@ export default function App() {
 
                   <View style={styles.customFormGrid}>
                     <View style={styles.customFormField}>
-                      <Text style={styles.customFormLabel}>Glas</Text>
+                      <Text style={styles.customFormLabel}>{t('glasswareLabel')}</Text>
                       <TextInput
                         value={customDrinkForm.glass}
                         onChangeText={(value) => updateCustomDrinkForm('glass', value)}
-                        placeholder="Rocks-Glas, Coupe, Highball..."
+                        placeholder={t('glasswarePlaceholder')}
                         placeholderTextColor="#8070A0"
                         style={styles.searchInput}
                         autoCapitalize="words"
@@ -1442,11 +1525,11 @@ export default function App() {
                     </View>
 
                     <View style={styles.customFormField}>
-                      <Text style={styles.customFormLabel}>Eis</Text>
+                      <Text style={styles.customFormLabel}>{t('iceTypeLabel')}</Text>
                       <TextInput
                         value={customDrinkForm.ice}
                         onChangeText={(value) => updateCustomDrinkForm('ice', value)}
-                        placeholder="Eiswürfel, Crushed Ice, ohne Eis..."
+                        placeholder={t('iceTypePlaceholder')}
                         placeholderTextColor="#8070A0"
                         style={styles.searchInput}
                         autoCapitalize="sentences"
@@ -1457,7 +1540,7 @@ export default function App() {
                   </View>
 
                   <View style={styles.customFormField}>
-                    <Text style={styles.customFormLabel}>Technik</Text>
+                    <Text style={styles.customFormLabel}>{t('techniqueLabel')}</Text>
                     <View style={styles.quizModeRow}>
                       {CUSTOM_DRINK_TECHNIQUES.map((technique) => {
                         const active = customDrinkForm.technique === technique;
@@ -1478,7 +1561,7 @@ export default function App() {
                                 active && styles.quizModeChipTextActive,
                               ]}
                             >
-                              {technique}
+                              {techniqueTranslations[language]?.[technique] || technique}
                             </Text>
                           </Pressable>
                         );
@@ -1487,11 +1570,11 @@ export default function App() {
                   </View>
 
                   <View style={styles.customFormField}>
-                    <Text style={styles.customFormLabel}>Zutaten</Text>
+                    <Text style={styles.customFormLabel}>{t('ingredientsFormLabel')}</Text>
                     <TextInput
                       value={customDrinkForm.ingredientsText}
                       onChangeText={(value) => updateCustomDrinkForm('ingredientsText', value)}
-                      placeholder={'6 cl Gin\n12 cl Tonic Water\n1 Spalte Limette'}
+                      placeholder={t('ingredientsPlaceholder')}
                       placeholderTextColor="#8070A0"
                       style={[styles.searchInput, styles.customTextArea]}
                       multiline
@@ -1502,11 +1585,11 @@ export default function App() {
                   </View>
 
                   <View style={styles.customFormField}>
-                    <Text style={styles.customFormLabel}>Garnitur</Text>
+                    <Text style={styles.customFormLabel}>{t('garnishLabel')}</Text>
                     <TextInput
                       value={customDrinkForm.garnish}
                       onChangeText={(value) => updateCustomDrinkForm('garnish', value)}
-                      placeholder="Optional, zum Beispiel: Limettenspalte"
+                      placeholder={t('garnishPlaceholder')}
                       placeholderTextColor="#8070A0"
                       style={styles.searchInput}
                       autoCapitalize="sentences"
@@ -1516,11 +1599,11 @@ export default function App() {
                   </View>
 
                   <View style={styles.customFormField}>
-                    <Text style={styles.customFormLabel}>Zubereitung</Text>
+                    <Text style={styles.customFormLabel}>{t('preparationLabel')}</Text>
                     <TextInput
                       value={customDrinkForm.methodText}
                       onChangeText={(value) => updateCustomDrinkForm('methodText', value)}
-                      placeholder={'Optional: ein Arbeitsschritt pro Zeile'}
+                      placeholder={t('methodPlaceholder')}
                       placeholderTextColor="#8070A0"
                       style={[styles.searchInput, styles.customTextArea]}
                       multiline
@@ -1556,7 +1639,7 @@ export default function App() {
                           />
                         )
                       ) : (
-                        <Text style={styles.customImagePreviewText}>Kein Bild</Text>
+                        <Text style={styles.customImagePreviewText}>{t('noImageLabel')}</Text>
                       )}
                     </View>
                     <View style={styles.customImageActions}>
@@ -1576,7 +1659,7 @@ export default function App() {
                           pressed && styles.searchActionButtonPressed,
                         ]}
                       >
-                        <Text style={styles.searchActionButtonText}>Bild auswaehlen</Text>
+                        <Text style={styles.searchActionButtonText}>{t('selectImageButton')}</Text>
                       </Pressable>
                       {customDrinkForm.imageName ? (
                         <Text style={styles.customImageName}>{customDrinkForm.imageName}</Text>
@@ -1589,7 +1672,7 @@ export default function App() {
                             pressed && styles.inlineResetButtonPressed,
                           ]}
                         >
-                          <Text style={styles.inlineResetButtonText}>Bild entfernen</Text>
+                          <Text style={styles.inlineResetButtonText}>{t('removeImageButton')}</Text>
                         </Pressable>
                       ) : null}
                     </View>
@@ -1607,7 +1690,7 @@ export default function App() {
                       pressed && styles.searchButtonPressed,
                     ]}
                   >
-                    <Text style={styles.searchButtonText}>In Bibliothek speichern</Text>
+                    <Text style={styles.searchButtonText}>{t('saveToLibraryButton')}</Text>
                   </Pressable>
                 </View>
               ) : customDrinkMessage ? (
@@ -1616,10 +1699,9 @@ export default function App() {
             </View>
 
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Drinks aus dem Web importieren</Text>
+              <Text style={styles.sectionTitle}>{t('importWebDrinksTitle')}</Text>
               <Text style={styles.sectionIntro}>
-                Fehlt ein Cocktail noch in der App, suche ihn online und importiere Zutaten,
-                Anleitung, Glas und Bild direkt in deine Bibliothek.
+                {t('importWebDrinksIntro')}
               </Text>
 
               <View style={styles.searchPanel}>
@@ -1634,7 +1716,7 @@ export default function App() {
                   onSubmitEditing={() => {
                     void handleSearch();
                   }}
-                  placeholder="Zum Beispiel: Paper Plane"
+                  placeholder={t('exampleWebSearchPlaceholder')}
                   placeholderTextColor="#8070A0"
                   style={styles.searchInput}
                   returnKeyType="search"
@@ -1655,12 +1737,12 @@ export default function App() {
                   ]}
                 >
                   <Text style={styles.searchButtonText}>
-                    {isSearching ? 'Suche läuft...' : 'Im Web suchen'}
+                    {isSearching ? t('searchingText') : t('searchWebButton')}
                   </Text>
                 </Pressable>
 
                 <Text style={styles.searchSource}>
-                  Quelle: TheCocktailDB · Bilder und importierte Rezepte werden lokal gecached
+                  {t('searchSourceNote')}
                 </Text>
 
                 {searchError ? <Text style={styles.searchError}>{searchError}</Text> : null}
@@ -1679,8 +1761,8 @@ export default function App() {
                         .slice(0, 4)
                         .map((ingredient) =>
                           ingredient.amount
-                            ? `${ingredient.amount} ${ingredient.item}`
-                            : ingredient.item
+                            ? `${translateAmount(ingredient.amount, language)} ${translateIngredient(ingredient.item, language)}`
+                            : translateIngredient(ingredient.item, language)
                         )
                         .join(' • ');
                       const isImporting = importingDrinkId === result.sourceId;
@@ -1721,20 +1803,20 @@ export default function App() {
                             </ImagePreviewTrigger>
                           ) : (
                             <View style={styles.searchResultPlaceholder}>
-                              <Text style={styles.searchResultPlaceholderText}>Kein Bild</Text>
+                              <Text style={styles.searchResultPlaceholderText}>{t('noImageLabel')}</Text>
                             </View>
                           )}
 
                           <View style={styles.searchResultBody}>
                             <Text style={styles.searchResultTitle}>{result.name}</Text>
                             <Text style={styles.searchResultMeta}>
-                              {result.category} · Glas: {result.glass}
+                              {translateCategory(result.category, language)} · {t('glasswareLabel')}: {translateGlassware(result.glass, language)}
                             </Text>
                             <Text style={styles.searchResultPreview}>{result.instructions}</Text>
 
-                            <Text style={styles.searchResultLabel}>Zutaten</Text>
+                            <Text style={styles.searchResultLabel}>{t('ingredients')}</Text>
                             <Text style={styles.searchResultIngredients}>
-                              {ingredientPreview || 'Keine Zutaten in der Webquelle gefunden.'}
+                              {ingredientPreview || t('noIngredientsWebSource')}
                             </Text>
 
                             <Pressable
@@ -1761,10 +1843,10 @@ export default function App() {
                                 ]}
                               >
                                 {existingDrink
-                                  ? 'Bereits vorhanden öffnen'
+                                  ? t('openExistingButton')
                                   : isImporting
-                                    ? 'Wird gespeichert...'
-                                    : 'In Bibliothek importieren'}
+                                    ? t('savingText')
+                                    : t('importToLibraryButton')}
                               </Text>
                             </Pressable>
                           </View>
@@ -1792,17 +1874,16 @@ export default function App() {
                 librarySectionOffsetRef.current = event.nativeEvent.layout.y;
               }}
             >
-              <Text style={styles.sectionTitle}>Cocktail-Bibliothek</Text>
+              <Text style={styles.sectionTitle}>{t('cocktailLibraryTitle')}</Text>
               <Text style={styles.sectionIntro}>
-                Suche nach Drinknamen, Zutaten, Spirituosen oder Glasarten und tippe auf eine Karte
-                für Rezept, Zubereitung und Servicehinweise.
+                {t('cocktailLibraryIntro')}
               </Text>
 
               <View style={styles.searchPanel}>
                 <TextInput
                   value={librarySearchQuery}
                   onChangeText={setLibrarySearchQuery}
-                  placeholder="Bibliothek durchsuchen: Name, Zutat, Spirituose, Glas"
+                  placeholder={t('searchLibraryPlaceholder')}
                   placeholderTextColor="#8070A0"
                   style={styles.searchInput}
                   autoCapitalize="words"
@@ -1810,7 +1891,7 @@ export default function App() {
                   keyboardAppearance="dark"
                 />
                 <Text style={styles.searchMessage}>
-                  {visibleDrinks.length} Treffer{normalizedLibraryQuery ? ' für deine Suche' : ''}.
+                  {t('matchesCountText').replace('{count}', String(visibleDrinks.length))}{normalizedLibraryQuery ? t('forYourSearch') : ''}.
                 </Text>
               </View>
 
@@ -1867,19 +1948,19 @@ export default function App() {
                           <View style={styles.drinkCardBody}>
                             <View style={styles.drinkBadgeRow}>
                               <View style={styles.primaryBadge}>
-                                <Text style={styles.primaryBadgeText}>{drink.technique}</Text>
+                                <Text style={styles.primaryBadgeText}>{techniqueTranslations[language]?.[drink.technique] || drink.technique}</Text>
                               </View>
                               <View style={styles.secondaryBadge}>
-                                <Text style={styles.secondaryBadgeText}>{drink.difficulty}</Text>
+                                <Text style={styles.secondaryBadgeText}>{difficultyTranslations[language]?.[drink.difficulty] || drink.difficulty}</Text>
                               </View>
                               {drink.source === 'web-import' ? (
                                 <View style={styles.sourceBadge}>
-                                  <Text style={styles.sourceBadgeText}>Web</Text>
+                                  <Text style={styles.sourceBadgeText}>{t('webBadge')}</Text>
                                 </View>
                               ) : null}
                               {drink.source === 'custom' ? (
                                 <View style={styles.sourceBadge}>
-                                  <Text style={styles.sourceBadgeText}>Eigen</Text>
+                                  <Text style={styles.sourceBadgeText}>{t('customBadge')}</Text>
                                 </View>
                               ) : null}
                               {drink.source === 'web-import' || drink.source === 'custom' ? (
@@ -1890,19 +1971,19 @@ export default function App() {
                                     pressed && styles.removeDrinkButtonPressed,
                                   ]}
                                 >
-                                  <Text style={styles.removeDrinkButtonText}>Entfernen</Text>
+                                  <Text style={styles.removeDrinkButtonText}>{t('removeButton')}</Text>
                                 </Pressable>
                               ) : null}
                             </View>
 
                             <Text style={styles.drinkName}>{drink.name}</Text>
                             <Text style={styles.drinkMeta}>
-                              {drink.category} · Glas: {drink.glass}
+                              {drink.category} · {t('glasswareLabel')}: {drink.glass}
                             </Text>
                             <Text style={styles.drinkSummary}>{drink.summary}</Text>
 
                             <View style={styles.inlineDetail}>
-                              <Text style={styles.inlineLabel}>Garnitur</Text>
+                              <Text style={styles.inlineLabel}>{t('garnishLabel')}</Text>
                               <Text style={styles.inlineValue}>{drink.garnish}</Text>
                             </View>
                           </View>
@@ -1911,7 +1992,7 @@ export default function App() {
                         {expanded ? (
                           <View style={styles.expandedArea}>
                             <View style={styles.detailBlock}>
-                              <Text style={styles.detailTitle}>Rezept</Text>
+                              <Text style={styles.detailTitle}>{t('recipeTitle')}</Text>
                               {drink.ingredients.map((ingredient) => (
                                 <View
                                   key={`${drink.id}-${ingredient.amount}-${ingredient.item}`}
@@ -1924,7 +2005,7 @@ export default function App() {
                             </View>
 
                             <View style={styles.detailBlock}>
-                              <Text style={styles.detailTitle}>Zubereitung</Text>
+                              <Text style={styles.detailTitle}>{t('preparationLabel')}</Text>
                               {drink.method.map((step, index) => (
                                 <View key={`${drink.id}-step-${index + 1}`} style={styles.methodRow}>
                                   <Text style={styles.methodIndex}>{index + 1}</Text>
@@ -1934,27 +2015,26 @@ export default function App() {
                             </View>
 
                             <View style={styles.tipPanel}>
-                              <Text style={styles.tipTitle}>Barhinweis</Text>
+                              <Text style={styles.tipTitle}>{t('barHintTitle')}</Text>
                               <Text style={styles.tipBody}>{drink.germanNote}</Text>
                             </View>
 
                             <View style={styles.tipPanel}>
-                              <Text style={styles.tipTitle}>Worauf du achten solltest</Text>
+                              <Text style={styles.tipTitle}>{t('proTipTitle')}</Text>
                               <Text style={styles.tipBody}>{drink.proTip}</Text>
                             </View>
                           </View>
                         ) : (
-                          <Text style={styles.tapHint}>Tippe für Rezept und Schritte</Text>
+                          <Text style={styles.tapHint}>{t('tapForRecipeHint')}</Text>
                         )}
                       </Pressable>
                     );
                   })
                 ) : (
                   <View style={styles.emptyStateCard}>
-                    <Text style={styles.emptyStateTitle}>Keine Drinks gefunden</Text>
+                    <Text style={styles.emptyStateTitle}>{t('noMatchingDrinks')}</Text>
                     <Text style={styles.emptyStateBody}>
-                      Prüfe die Suche oder wechsle die Kategorie. Es wird nach Name, Zutaten,
-                      Spirituosen, Technik, Glas und Garnitur gefiltert.
+                      {t('noMatchingDrinksBody')}
                     </Text>
                   </View>
                 )}
@@ -1962,20 +2042,18 @@ export default function App() {
             </View>
 
             <View style={styles.footerCard}>
-              <Text style={styles.footerTitle}>Service-Erinnerung</Text>
+              <Text style={styles.footerTitle}>{t('serviceReminderTitle')}</Text>
               <Text style={styles.footerBody}>
-                Konstanz ist am Anfang wichtiger als Tempo. Miss jeden Pour sauber ab, halte die
-                Gläser kalt und sauber und beachte immer die lokalen Alters- und Serviceregeln.
+                {t('serviceReminderBody')}
               </Text>
             </View>
           </>
         ) : activeView === 'basics' ? (
           <>
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Bar Basics</Text>
+              <Text style={styles.sectionTitle}>{t('basics')}</Text>
               <Text style={styles.sectionIntro}>
-                Kurzmodule für den Start an einer deutschen Bar: Station, Eis, Hygiene, Tempo und
-                Service.
+                {t('basicsIntro')}
               </Text>
 
               <ScrollView
@@ -2019,11 +2097,10 @@ export default function App() {
               </View>
 
               <View style={styles.barToolsHeader}>
-                <Text style={styles.barToolsHeaderEyebrow}>Bar-Werkzeuge</Text>
-                <Text style={styles.barToolsHeaderTitle}>Werkzeug-Spickzettel</Text>
+                <Text style={styles.barToolsHeaderEyebrow}>{t('barToolsHeaderEyebrow')}</Text>
+                <Text style={styles.barToolsHeaderTitle}>{t('barToolsHeaderTitle')}</Text>
                 <Text style={styles.barToolsHeaderBody}>
-                  Jedes Werkzeug hat einen klaren Zweck. Wer Jigger, Shaker, Barlöffel und Strainer
-                  beherrscht, baut konstanter und schneller. Tippe auf ein Bild, um es groß zu sehen.
+                  {t('barToolsHeaderBody')}
                 </Text>
               </View>
 
@@ -2043,7 +2120,7 @@ export default function App() {
                     <Text style={styles.barToolBody}>{tool.use}</Text>
 
                     <View style={styles.barToolSection}>
-                      <Text style={styles.barToolSectionTitle}>✓ Wann du es greifst:</Text>
+                      <Text style={styles.barToolSectionTitle}>{t('whenToUseLabel')}</Text>
                       {tool.bestFor.map((item, index) => (
                         <Text key={`${tool.name}-best-${index}`} style={styles.barToolListItem}>
                           • {item}
@@ -2052,7 +2129,7 @@ export default function App() {
                     </View>
 
                     <View style={styles.barToolSection}>
-                      <Text style={styles.barToolSectionTitle}>⚠ Häufige Fehler:</Text>
+                      <Text style={styles.barToolSectionTitle}>{t('commonPitfallsTitle')}</Text>
                       {tool.pitfalls.map((item, index) => (
                         <Text key={`${tool.name}-pitfall-${index}`} style={styles.barToolListItem}>
                           • {item}
@@ -2064,14 +2141,12 @@ export default function App() {
               </View>
 
               <View style={styles.techniqueTrackHeader}>
-                <Text style={styles.techniqueTrackHeaderEyebrow}>Techniktraining</Text>
+                <Text style={styles.techniqueTrackHeaderEyebrow}>{t('techniqueTraining')}</Text>
                 <Text style={styles.techniqueTrackHeaderTitle}>
-                  Rühren & Shaken Schritt für Schritt
+                  {t('techniqueTrackTitle')}
                 </Text>
                 <Text style={styles.techniqueTrackHeaderBody}>
-                  Zwei Lernpfade, an denen du die zwei wichtigsten Bewegungen hinter der Bar
-                  trainierst. Jede Stufe baut auf der vorherigen auf - tippe auf einen Drink, um
-                  direkt das Rezept zu öffnen.
+                  {t('techniqueTrackBody')}
                 </Text>
               </View>
 
@@ -2081,7 +2156,7 @@ export default function App() {
                     <View style={styles.techniqueTrackTitleRow}>
                       <Text style={styles.techniqueTrackEyebrow}>{track.technique}</Text>
                       <Text style={styles.techniqueTrackStepCount}>
-                        {track.stops.length} Stufen
+                        {t('stopsCountText').replace('{count}', String(track.stops.length))}
                       </Text>
                     </View>
                     <Text style={styles.techniqueTrackTitle}>{track.title}</Text>
@@ -2125,18 +2200,18 @@ export default function App() {
                               ) : null}
 
                               <View style={styles.techniqueStopBlock}>
-                                <Text style={styles.techniqueStopBlockLabel}>Fokus</Text>
+                                <Text style={styles.techniqueStopBlockLabel}>{t('focusLabel')}</Text>
                                 <Text style={styles.techniqueStopBlockBody}>{stop.focus}</Text>
                               </View>
                               <View style={styles.techniqueStopBlock}>
                                 <Text style={styles.techniqueStopBlockLabel}>
-                                  Herausforderung
+                                  {t('challengeLabel')}
                                 </Text>
                                 <Text style={styles.techniqueStopBlockBody}>{stop.challenge}</Text>
                               </View>
                               <View style={styles.techniqueStopBlock}>
                                 <Text style={styles.techniqueStopBlockLabel}>
-                                  So weißt du, dass es sitzt
+                                  {t('successCheckLabel')}
                                 </Text>
                                 <Text style={styles.techniqueStopBlockBody}>
                                   {stop.successCheck}
@@ -2145,7 +2220,7 @@ export default function App() {
 
                               {drink ? (
                                 <Text style={styles.techniqueStopHint}>
-                                  Tippen für Rezept und Schritte →
+                                  {t('tapForRecipeHint')} →
                                 </Text>
                               ) : null}
                             </Pressable>
@@ -2166,22 +2241,21 @@ export default function App() {
                 quizSectionOffsetRef.current = event.nativeEvent.layout.y;
               }}
             >
-              <Text style={styles.sectionTitle}>Quiz</Text>
+              <Text style={styles.sectionTitle}>{t('quiz')}</Text>
               <Text style={styles.sectionIntro}>
-                Baue zufällige Drinks aus dem Kopf. Im Service-Modus musst du zusätzlich Mengen,
-                Garnitur und Reihenfolge sauber treffen.
+                {t('quizIntro')}
               </Text>
 
               <View style={styles.tipJarCard}>
                 <View>
-                  <Text style={styles.tipJarLabel}>Trinkgeldglas</Text>
+                  <Text style={styles.tipJarLabel}>{t('tipJar')}</Text>
                   <Text style={styles.tipJarValue}>{formatEuro(tipJar)}</Text>
                 </View>
-                <Text style={styles.tipJarMeta}>{quizPoolDrinks.length} Drinks im aktiven Pool</Text>
+                <Text style={styles.tipJarMeta}>{t('drinksInActivePoolText').replace('{count}', String(quizPoolDrinks.length))}</Text>
               </View>
 
               <View style={styles.quizCard}>
-                <Text style={styles.quizCardTitle}>Trainingsmodus</Text>
+                <Text style={styles.quizCardTitle}>{t('trainingMode')}</Text>
                 <View style={styles.quizModeRow}>
                   {QUIZ_MODES.map((mode) => {
                     const active = quizMode === mode.key;
@@ -2197,7 +2271,7 @@ export default function App() {
                         ]}
                       >
                         <Text style={[styles.quizModeChipText, active && styles.quizModeChipTextActive]}>
-                          {mode.label}
+                          {t(mode.key)}
                         </Text>
                       </Pressable>
                     );
@@ -2205,11 +2279,11 @@ export default function App() {
                 </View>
                 <Text style={styles.quizSelectionText}>
                   {quizMode === 'beginner'
-                    ? 'Einsteiger prüft Glas und Zutaten.'
-                    : 'Service prüft Glas, exakte Rezeptpositionen, Garnitur und Reihenfolge.'}
+                    ? t('beginnerModePrompt')
+                    : t('serviceModePrompt')}
                 </Text>
 
-                <Text style={styles.quizCardTitle}>Pool</Text>
+                <Text style={styles.quizCardTitle}>{t('poolLabel')}</Text>
                 <View style={styles.quizModeRow}>
                   {QUIZ_POOLS.map((pool) => {
                     const active = quizPool === pool.key;
@@ -2225,7 +2299,7 @@ export default function App() {
                         ]}
                       >
                         <Text style={[styles.quizModeChipText, active && styles.quizModeChipTextActive]}>
-                          {pool.label}
+                          {pool.key === 'all' ? t('allDrinks') : t('mistakes')}
                         </Text>
                       </Pressable>
                     );
@@ -2233,40 +2307,42 @@ export default function App() {
                 </View>
                 <Text style={styles.quizSelectionText}>
                   {quizPool === 'mistakes'
-                    ? 'Fehlerfokus zeigt Drinks, bei denen falsche Antworten noch nicht aufgeholt wurden.'
-                    : 'Alle Drinks aus Bibliothek und Web-Importen können vorkommen.'}
+                    ? t('quizPoolMistakesDesc')
+                    : t('quizPoolAllDesc')}
                 </Text>
               </View>
 
               <View style={styles.quizCard}>
-                <Text style={styles.quizCardTitle}>Fortschritt</Text>
+                <Text style={styles.quizCardTitle}>{t('progressLabel')}</Text>
                 <View style={styles.statRow}>
-                  <StatTile label="Versuche" value={String(quizProgress.totalAttempts)} />
+                  <StatTile label={t('attemptsLabel')} value={String(quizProgress.totalAttempts)} />
                   <StatTile
-                    label="Trefferquote"
+                    label={t('accuracyLabel')}
                     value={formatPercent(quizProgress.correctAnswers, quizProgress.totalAttempts)}
                   />
                 </View>
                 <View style={styles.statRow}>
-                  <StatTile label="Streak" value={String(quizProgress.currentStreak)} />
-                  <StatTile label="Best" value={String(quizProgress.bestStreak)} />
+                  <StatTile label={t('streakLabel')} value={String(quizProgress.currentStreak)} />
+                  <StatTile label={t('bestLabel')} value={String(quizProgress.bestStreak)} />
                 </View>
 
-                <Text style={styles.quizStepLabel}>Nur meine Fehler üben</Text>
+                <Text style={styles.quizStepLabel}>{t('onlyMistakesLabel')}</Text>
                 {unresolvedMistakeDrinks.length ? (
                   <View style={styles.mistakeList}>
                     {unresolvedMistakeDrinks.slice(0, 4).map(({ drink, stats }) => (
                       <View key={`mistake-${drink.id}`} style={styles.mistakeRow}>
                         <Text style={styles.mistakeDrinkName}>{drink.name}</Text>
                         <Text style={styles.mistakeMeta}>
-                          {stats.wrong} falsch · {stats.correct} richtig
+                          {t('statWrongRight')
+                            .replace('{wrong}', String(stats.wrong))
+                            .replace('{correct}', String(stats.correct))}
                         </Text>
                       </View>
                     ))}
                   </View>
                 ) : (
                   <Text style={styles.emptyIngredientState}>
-                    Noch keine offenen Fehler. Dein Fehler-Pool ist gerade leer.
+                    {t('emptyMistakesList')}
                   </Text>
                 )}
               </View>
@@ -2284,20 +2360,20 @@ export default function App() {
               {currentDrink ? (
                 <>
                   <View style={styles.quizCard}>
-                    <Text style={styles.quizStepLabel}>Zufälliger Drink</Text>
+                    <Text style={styles.quizStepLabel}>{t('randomDrinkLabel')}</Text>
                     <Text style={styles.quizDrinkName}>{currentDrink.name}</Text>
                     <Text style={styles.quizDrinkMeta}>
-                      {currentDrink.category} · Technik: {currentDrink.technique}
+                      {currentDrink.category} · {t('techniqueLabel')}: {techniqueTranslations[language]?.[currentDrink.technique] || currentDrink.technique}
                     </Text>
                     <Text style={styles.quizDrinkPrompt}>
                       {serviceMode
-                        ? 'Service-Modus: Glas, genaue Rezeptpositionen, Garnitur und Reihenfolge treffen.'
-                        : 'Einsteiger-Modus: Welches Glas passt und welche Zutaten brauchst du?'}
+                        ? t('serviceModePrompt')
+                        : t('beginnerModePrompt')}
                     </Text>
                   </View>
 
                   <View style={styles.quizCard}>
-                    <Text style={styles.quizCardTitle}>1. Das richtige Glas wählen</Text>
+                    <Text style={styles.quizCardTitle}>{t('glassChooseTitle')}</Text>
                     <ScrollView
                       horizontal
                       showsHorizontalScrollIndicator={false}
@@ -2324,28 +2400,28 @@ export default function App() {
                                 active && styles.quizGlassChipTextActive,
                               ]}
                             >
-                              {option}
+                              {translateGlassware(option, language)}
                             </Text>
                           </Pressable>
                         );
                       })}
                     </ScrollView>
                     <Text style={styles.quizSelectionText}>
-                      {selectedGlass ? `Gewählt: ${selectedGlass}` : 'Noch kein Glas ausgewählt.'}
+                      {selectedGlass ? `${t('glassSelectedLabel')}: ${translateGlassware(selectedGlass, language)}` : t('glassNotSelectedLabel')}
                     </Text>
                   </View>
 
                   <View style={styles.quizCard}>
                     <Text style={styles.quizCardTitle}>
-                      2. {serviceMode ? 'Rezept inklusive Mengen bauen' : 'Zutaten zusammenstellen'}
+                      {serviceMode ? t('recipeBuildTitle') : t('recipeBuildBeginnerTitle')}
                     </Text>
                     <TextInput
                       value={ingredientSearchQuery}
                       onChangeText={handleIngredientSearchChange}
                       placeholder={
                         serviceMode
-                          ? 'Rezeptposition oder Menge suchen'
-                          : 'Zutat suchen'
+                          ? t('searchIngredientsPlaceholderService')
+                          : t('searchIngredientsPlaceholderBeginner')
                       }
                       placeholderTextColor="#8070A0"
                       style={[styles.searchInput, quizLocked && styles.quizInputDisabled]}
@@ -2356,11 +2432,12 @@ export default function App() {
                     />
 
                     <Text style={styles.quizSelectionCount}>
-                      {selectedIngredients.length}{' '}
-                      {serviceMode ? 'Rezeptpositionen' : 'Zutaten'} ausgewählt
+                      {serviceMode
+                        ? t('selectedIngredientsCountService').replace('{count}', String(selectedIngredients.length))
+                        : t('selectedIngredientsCountBeginner').replace('{count}', String(selectedIngredients.length))}
                     </Text>
                     <Text style={styles.quizSelectionText}>
-                      {selectedIngredientsSummary || 'Noch keine Auswahl getroffen.'}
+                      {selectedIngredientsSummary || t('selectedIngredientsSummaryNone')}
                     </Text>
 
                     {selectedIngredients.length ? (
@@ -2412,7 +2489,7 @@ export default function App() {
                         })
                       ) : (
                         <Text style={styles.emptyIngredientState}>
-                          Keine Rezeptpositionen für diese Suche gefunden.
+                          {t('emptyIngredientsSearch')}
                         </Text>
                       )}
                     </View>
@@ -2421,7 +2498,7 @@ export default function App() {
                   {serviceMode ? (
                     <>
                       <View style={styles.quizCard}>
-                        <Text style={styles.quizCardTitle}>3. Die richtige Garnitur wählen</Text>
+                        <Text style={styles.quizCardTitle}>{t('garnishChooseTitle')}</Text>
                         <View style={styles.ingredientBank}>
                           {garnishBank.map((garnish) => {
                             const active = selectedGarnish === garnish;
@@ -2451,13 +2528,13 @@ export default function App() {
                           })}
                         </View>
                         <Text style={styles.quizSelectionText}>
-                          {selectedGarnish ? `Gewählt: ${selectedGarnish}` : 'Noch keine Garnitur gewählt.'}
+                          {selectedGarnish ? `${t('garnishSelectedLabel')}: ${selectedGarnish}` : t('garnishNotSelectedLabel')}
                         </Text>
                       </View>
 
                       <View style={styles.quizCard}>
                         <View style={styles.buildOrderHeader}>
-                          <Text style={styles.quizCardTitle}>4. Reihenfolge aufbauen</Text>
+                          <Text style={styles.quizCardTitle}>{t('methodArrangeTitle')}</Text>
                           <Pressable
                             onPress={() => setSelectedBuildSteps([])}
                             disabled={quizLocked || !selectedBuildSteps.length}
@@ -2470,12 +2547,14 @@ export default function App() {
                                 styles.inlineResetButtonPressed,
                             ]}
                           >
-                            <Text style={styles.inlineResetButtonText}>Zurücksetzen</Text>
+                            <Text style={styles.inlineResetButtonText}>{t('resetButton')}</Text>
                           </Pressable>
                         </View>
 
                         <Text style={styles.quizSelectionCount}>
-                          {selectedBuildSteps.length} von {currentDrink.method.length} Schritten gesetzt
+                          {t('stepsPlacedText')
+                            .replace('{placed}', String(selectedBuildSteps.length))
+                            .replace('{total}', String(currentDrink.method.length))}
                         </Text>
 
                         {selectedBuildSteps.length ? (
@@ -2498,8 +2577,7 @@ export default function App() {
                           </View>
                         ) : (
                           <Text style={styles.quizSelectionText}>
-                            Noch keine Reihenfolge gesetzt. Tippe unten die Schritte in der Reihenfolge an,
-                            in der du den Drink bauen würdest.
+                            {t('methodArrangePlaceholder')}
                           </Text>
                         )}
 
@@ -2535,10 +2613,9 @@ export default function App() {
                     </>
                   ) : (
                     <View style={styles.hintCard}>
-                      <Text style={styles.hintTitle}>Nächster Schritt</Text>
+                      <Text style={styles.hintTitle}>{t('nextStepTitle')}</Text>
                       <Text style={styles.hintBody}>
-                        Im Service-Modus kommen exakte Mengen, Garnitur und Reihenfolge dazu. Wenn der
-                        Einsteiger-Modus sitzt, schalte dort um.
+                        {t('nextStepBody')}
                       </Text>
                     </View>
                   )}
@@ -2570,10 +2647,10 @@ export default function App() {
                       >
                         <Text style={styles.feedbackTitle}>
                           {quizStatus.kind === 'correct'
-                            ? 'Richtig'
+                            ? t('feedbackCorrect')
                             : quizStatus.kind === 'wrong'
-                              ? 'Noch nicht'
-                              : 'Cheat'}
+                              ? t('feedbackWrong')
+                              : t('feedbackCheat')}
                         </Text>
                         <Text style={styles.feedbackBody}>{quizStatus.message}</Text>
 
@@ -2595,17 +2672,17 @@ export default function App() {
                               pressed && styles.cheatButtonPressed,
                             ]}
                           >
-                            <Text style={styles.cheatButtonText}>Cheat</Text>
+                            <Text style={styles.cheatButtonText}>{t('feedbackCheat')}</Text>
                           </Pressable>
                         ) : null}
 
                         {quizStatus.kind === 'cheat-reveal' ? (
                           <View style={styles.answerReveal}>
-                            <Text style={styles.answerRevealTitle}>Richtiges Glas</Text>
+                            <Text style={styles.answerRevealTitle}>{t('glasswareLabel')}</Text>
                             <Text style={styles.answerRevealBody}>
-                              {acceptedQuizGlasses.join(' oder ')}
+                              {acceptedQuizGlasses.map((g) => translateGlassware(g, language)).join(` ${t('or')} `)}
                             </Text>
-                            <Text style={styles.answerRevealTitle}>Richtige Zutaten</Text>
+                            <Text style={styles.answerRevealTitle}>{t('ingredients')}</Text>
                             <View style={styles.answerRevealList}>
                               {currentDrink.ingredients.map((ingredient) => (
                                 <View
@@ -2621,9 +2698,9 @@ export default function App() {
                             </View>
                             {serviceMode ? (
                               <>
-                                <Text style={styles.answerRevealTitle}>Richtige Garnitur</Text>
+                                <Text style={styles.answerRevealTitle}>{t('garnishLabel')}</Text>
                                 <Text style={styles.answerRevealBody}>{currentDrink.garnish}</Text>
-                                <Text style={styles.answerRevealTitle}>Richtige Reihenfolge</Text>
+                                <Text style={styles.answerRevealTitle}>{t('preparationLabel')}</Text>
                                 <View style={styles.answerRevealList}>
                                   {currentDrink.method.map((step, index) => (
                                     <View key={`${currentDrink.id}-step-answer-${index + 1}`} style={styles.answerRevealRow}>
@@ -2644,13 +2721,13 @@ export default function App() {
                 <View style={styles.quizCard}>
                   <Text style={styles.emptyStateTitle}>
                     {quizPool === 'mistakes'
-                      ? 'Dein Fehler-Pool ist leer'
-                      : 'Quiz wird vorbereitet'}
+                      ? t('emptyMistakesTitle')
+                      : t('quizPreparingTitle')}
                   </Text>
                   <Text style={styles.emptyStateBody}>
                     {quizPool === 'mistakes'
-                      ? 'Sobald es offene Fehl-Drinks gibt, kannst du sie hier gezielt nachtrainieren. Bis dahin nutze den Pool "Alle Drinks".'
-                      : 'Sobald Drinks geladen sind, erscheint hier der nächste Trainings-Drink.'}
+                      ? t('emptyMistakesBody')
+                      : t('quizPreparingBody')}
                   </Text>
                 </View>
               )}
@@ -2922,7 +2999,7 @@ function inferCustomGlassStyle(glass: string): DrinkArtworkSpec['glassStyle'] {
   return 'highball';
 }
 
-function buildIngredientBank(drinkPool: Drink[], mode: QuizMode) {
+function buildIngredientBank(drinkPool: Drink[], mode: QuizMode, lang: SupportedLanguage = 'de') {
   const seen = new Set<string>();
   const ingredients: string[] = [];
 
@@ -2940,10 +3017,10 @@ function buildIngredientBank(drinkPool: Drink[], mode: QuizMode) {
     }
   }
 
-  return ingredients.sort((left, right) => left.localeCompare(right, 'de'));
+  return ingredients.sort((left, right) => left.localeCompare(right, lang));
 }
 
-function buildGarnishBank(drinkPool: Drink[]) {
+function buildGarnishBank(drinkPool: Drink[], lang: SupportedLanguage = 'de') {
   const seen = new Set<string>();
   const garnishes: string[] = [];
 
@@ -2957,7 +3034,7 @@ function buildGarnishBank(drinkPool: Drink[]) {
     garnishes.push(drink.garnish);
   }
 
-  return garnishes.sort((left, right) => left.localeCompare(right, 'de'));
+  return garnishes.sort((left, right) => left.localeCompare(right, lang));
 }
 
 function getExpectedIngredientLabels(drink: Drink, mode: QuizMode) {
@@ -3015,7 +3092,7 @@ function stepListsMatch(expectedSteps: string[], selectedSteps: string[]) {
 
 function getAcceptedQuizGlasses(glassLabel: string) {
   const rawParts = glassLabel
-    .split(/\s+oder\s+|\/|,|;/i)
+    .split(/\s+(?:oder|or|ou|o|of)\s+|\/|,|;/i)
     .map((part) => part.trim())
     .filter(Boolean);
   const parts = rawParts.length ? rawParts : [glassLabel];
@@ -3047,9 +3124,15 @@ function canonicalizeQuizGlass(glassLabel: string): QuizGlassOption {
   if (
     normalized.includes('wine') ||
     normalized.includes('weinglas') ||
+    normalized.includes('wijnglas') ||
+    normalized.includes('vin') ||
+    normalized.includes('vino') ||
     normalized.includes('goblet') ||
     normalized.includes('champagner') ||
-    normalized.includes('flute')
+    normalized.includes('champagne') ||
+    normalized.includes('flute') ||
+    normalized.includes('fluit') ||
+    normalized.includes('champan')
   ) {
     return 'Weinglas';
   }
@@ -3058,12 +3141,15 @@ function canonicalizeQuizGlass(glassLabel: string): QuizGlassOption {
     normalized.includes('mule') ||
     normalized.includes('becher') ||
     normalized.includes('mug') ||
-    normalized.includes('kupfer')
+    normalized.includes('kupfer') ||
+    normalized.includes('tasse') ||
+    normalized.includes('jarra') ||
+    normalized.includes('beker')
   ) {
     return 'Mule-Becher';
   }
 
-  if (normalized.includes('hurricane')) {
+  if (normalized.includes('hurricane') || normalized.includes('tulip') || normalized.includes('tulpe')) {
     return 'Hurricane-Glas';
   }
 
@@ -3071,7 +3157,8 @@ function canonicalizeQuizGlass(glassLabel: string): QuizGlassOption {
     normalized.includes('rocks') ||
     normalized.includes('old fashioned') ||
     normalized.includes('tumbler') ||
-    normalized.includes('whiskey')
+    normalized.includes('whiskey') ||
+    normalized.includes('whisky')
   ) {
     return 'Rocks-Glas';
   }
@@ -5308,5 +5395,40 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     backgroundColor: '#100D1F',
+  },
+  langSelectorRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: 12,
+    alignItems: 'center',
+    gap: 8,
+  },
+  langChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: '#160C28',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    ...(Platform.select({
+      web: {
+        backdropFilter: 'blur(10px)',
+        cursor: 'pointer',
+        transition: 'all 0.2s ease',
+      } as never,
+    }) || {}),
+  },
+  langChipActive: {
+    backgroundColor: '#CC0055',
+    borderColor: '#E6006B',
+  },
+  langChipText: {
+    color: '#AA99CC',
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  langChipTextActive: {
+    color: '#FFFFFF',
   },
 });
