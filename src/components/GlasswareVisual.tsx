@@ -1,5 +1,5 @@
-import NextImage from 'next/image';
-import { Image, Platform } from 'react-native';
+import Image from 'next/image';
+import { Platform } from 'react-native';
 
 import type { GlasswareIllustration } from '../data/bartending';
 
@@ -26,36 +26,21 @@ export function GlasswareVisual({
   height = 184,
   loading = 'lazy',
 }: GlasswareVisualProps) {
-  if (Platform.OS === 'web') {
-    return (
-      <NextImage
-        src={GLASSWARE_IMAGE_URIS[kind]}
-        alt=""
-        width={width}
-        height={height}
-        loading={loading}
-        sizes={`${width}px`}
-        style={{
-          width,
-          height,
-          borderRadius: 18,
-          objectFit: 'contain',
-          display: 'block',
-        }}
-      />
-    );
-  }
-
   return (
     <Image
+      src={GLASSWARE_IMAGE_URIS[kind]}
       alt=""
-      source={{ uri: GLASSWARE_IMAGE_URIS[kind] }}
+      width={width}
+      height={height}
+      loading={loading}
+      sizes={`${width}px`}
       style={{
         width,
         height,
         borderRadius: 18,
+        objectFit: 'contain',
+        display: 'block',
       }}
-      resizeMode="contain"
     />
   );
 }

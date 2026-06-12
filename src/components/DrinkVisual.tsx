@@ -1,5 +1,5 @@
-import NextImage from 'next/image';
-import { Image, Platform, StyleSheet, type ImageResizeMode } from 'react-native';
+import Image from 'next/image';
+import { Platform, StyleSheet, type ImageResizeMode } from 'react-native';
 
 import type { Drink } from '../data/bartending';
 import { DrinkArtwork } from './DrinkArtwork';
@@ -40,40 +40,22 @@ export function DrinkVisual({ drink, size = 124, resizeMode = 'cover' }: DrinkVi
     return <DrinkArtwork artwork={drink.artwork} size={size} />;
   }
 
-  if (Platform.OS === 'web') {
-    return (
-      <NextImage
-        unoptimized={uri.startsWith('data:')}
-        src={uri}
-        alt=""
-        width={size}
-        height={size}
-        sizes={`${size}px`}
-        style={{
-          width: size,
-          height: size,
-          borderRadius: Math.round(size * 0.23),
-          objectFit: toObjectFit(resizeMode),
-          display: 'block',
-          backgroundColor: '#E7D8C5',
-        }}
-      />
-    );
-  }
-
   return (
     <Image
+      unoptimized={uri.startsWith('data:')}
+      src={uri}
       alt=""
-      source={{ uri }}
-      style={[
-        styles.image,
-        {
-          width: size,
-          height: size,
-          borderRadius: Math.round(size * 0.23),
-        },
-      ]}
-      resizeMode={resizeMode}
+      width={size}
+      height={size}
+      sizes={`${size}px`}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: Math.round(size * 0.23),
+        objectFit: toObjectFit(resizeMode),
+        display: 'block',
+        backgroundColor: '#E7D8C5',
+      }}
     />
   );
 }

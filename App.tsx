@@ -1,11 +1,10 @@
 import { type ChangeEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import NextImage from 'next/image';
+import Image from 'next/image';
 import {
   ActivityIndicator,
   Animated,
   Easing,
-  Image,
   Linking,
   Modal,
   Platform,
@@ -1128,7 +1127,7 @@ export default function App() {
                 <DrinkVisual drink={imagePreview.drink} size={previewVisualSize} resizeMode="contain" />
               ) : null}
               {imagePreview.kind === 'remote' ? (
-                <NextImage
+                <Image
                   src={imagePreview.uri}
                   alt={imagePreview.title}
                   width={previewVisualSize}
@@ -1175,10 +1174,12 @@ export default function App() {
               ) : null}
               {imagePreview.kind === 'remote' ? (
                 <Image
+                  src={imagePreview.uri}
                   alt={imagePreview.title}
-                  source={{ uri: imagePreview.uri }}
-                  style={styles.previewImage}
-                  resizeMode="contain"
+                  width={previewVisualSize}
+                  height={previewVisualSize}
+                  sizes={`${previewVisualSize}px`}
+                  style={{ width: previewVisualSize, height: previewVisualSize, objectFit: 'contain', display: 'block' }}
                 />
               ) : null}
             </Animated.View>
@@ -1616,8 +1617,7 @@ export default function App() {
                   <View style={styles.customImageRow}>
                     <View style={styles.customImagePreview}>
                       {customDrinkForm.imageDataUrl ? (
-                        Platform.OS === 'web' ? (
-                          <NextImage
+                          <Image
                             unoptimized
                             src={customDrinkForm.imageDataUrl}
                             alt=""
@@ -1631,13 +1631,6 @@ export default function App() {
                               display: 'block',
                             }}
                           />
-                        ) : (
-                          <Image
-                            alt=""
-                            source={{ uri: customDrinkForm.imageDataUrl }}
-                            style={styles.customImagePreviewImage}
-                          />
-                        )
                       ) : (
                         <Text style={styles.customImagePreviewText}>{t('noImageLabel')}</Text>
                       )}
@@ -1777,8 +1770,7 @@ export default function App() {
                               style={styles.imagePreviewButton}
                               pressedStyle={styles.imagePreviewButtonPressed}
                             >
-                              {Platform.OS === 'web' ? (
-                                <NextImage
+                                <Image
                                   src={result.imageUrl}
                                   alt={result.name}
                                   width={92}
@@ -1793,13 +1785,6 @@ export default function App() {
                                     backgroundColor: '#1A0F2A',
                                   }}
                                 />
-                              ) : (
-                                <Image
-                                  alt={result.name}
-                                  source={{ uri: result.imageUrl }}
-                                  style={styles.searchResultImage}
-                                />
-                              )}
                             </ImagePreviewTrigger>
                           ) : (
                             <View style={styles.searchResultPlaceholder}>

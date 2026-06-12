@@ -1,5 +1,4 @@
-import NextImage from 'next/image';
-import { Image, Platform } from 'react-native';
+import Image from 'next/image';
 
 import type { BarToolIllustration } from '../data/bartending';
 
@@ -26,43 +25,28 @@ export function BarToolVisual({
   height = 184,
   loading = 'lazy',
 }: BarToolVisualProps) {
-  if (Platform.OS === 'web') {
-    return (
-      <span
-        style={{
-          width,
-          height,
-          borderRadius: 18,
-          display: 'block',
-          overflow: 'hidden',
-          position: 'relative',
-        }}
-      >
-        <NextImage
-          src={BAR_TOOL_IMAGE_URIS[kind]}
-          alt=""
-          fill
-          loading={loading}
-          sizes={`${width}px`}
-          style={{
-            borderRadius: 18,
-            objectFit: 'contain',
-          }}
-        />
-      </span>
-    );
-  }
-
   return (
-    <Image
-      alt=""
-      source={{ uri: BAR_TOOL_IMAGE_URIS[kind] }}
+    <span
       style={{
         width,
         height,
         borderRadius: 18,
+        display: 'block',
+        overflow: 'hidden',
+        position: 'relative',
       }}
-      resizeMode="contain"
-    />
+    >
+      <Image
+        src={BAR_TOOL_IMAGE_URIS[kind]}
+        alt=""
+        fill
+        loading={loading}
+        sizes={`${width}px`}
+        style={{
+          borderRadius: 18,
+          objectFit: 'contain',
+        }}
+      />
+    </span>
   );
 }
